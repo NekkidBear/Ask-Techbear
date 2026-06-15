@@ -70,8 +70,8 @@ app.add_middleware(
 # Uncomment each as we build them
 # =============================================================
 
-# from backend.routers import questions, sessions, slideshow
-# app.include_router(questions.router, prefix="/api/questions", tags=["questions"])
+from backend.routers import questions#, sessions, slideshow
+app.include_router(questions.router, prefix="/api/questions", tags=["questions"])
 # app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
 # app.include_router(slideshow.router, prefix="/api/slideshow", tags=["slideshow"])
 
