@@ -1,0 +1,28 @@
+# Environment variables & secrets
+.env
+.env.*
+!.env.example
+
+# Python
+venv/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+dist/
+build/
+
+# Database
+*.db
+*.sqlite3
+
+# OS
+.DS_Store
+
+# Editor
+.vscode/
+*.swp
+
+# Cloudflare credentials (if any end up in project dir)
+*.cloudflared/
