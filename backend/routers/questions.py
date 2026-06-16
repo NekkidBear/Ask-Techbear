@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db
 from backend.models import Question, Session as EventSession
+from backend.services.llm import generate_techbear_response
 
 router = APIRouter()
 
@@ -168,6 +169,37 @@ async def update_question(
     if payload.answered_at is not None:
         question.answered_at = payload.answered_at
 
+    await db.flush()
+    await db.refresh(question)
+    return question
+
+
+@router.post("/{question_id}/generate", response_model=QuestionResponse)
+async def generate_draft(
+    question_id: int,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Triggers TechBear's LLM to draft a response for this question.
+    Called from the moderator dashboard's "Generate Draft" button.
+    """
+    result = await db.execute(
+        select(Question).where(Question.id == question_id)
+    )
+    question = result.scalar_one_or_none()
+    if not question:
+        raise HTTPException(status_code=404, detail="Question not found")
+
+    # TODO: pull rolling context from session_context table
+    # TODO: pull RAG context from ChromaDB once corpus is built
+    draft = await generate_techbear_response(
+        sanitized_question=question.question_text,
+        rolling_context="",
+        rag_context="",
+    )
+
+    question.llm_draft = draft
+    question.draft_generated_at = datetime.utcnow()
     await db.flush()
     await db.refresh(question)
     return question

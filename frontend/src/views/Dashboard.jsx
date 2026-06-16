@@ -6,6 +6,7 @@ export default function Dashboard() {
   const [selected, setSelected] = useState(null)
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('pending')
+  const [generating, setGenerating] = useState(false)
 
   const fetchQuestions = useCallback(async () => {
     try {
@@ -35,6 +36,19 @@ export default function Dashboard() {
       }
     } catch (err) {
       console.error('Failed to update question', err)
+    }
+  }
+
+  const generateDraft = async (id) => {
+    setGenerating(true)
+    try {
+      const res = await axios.post(`/api/questions/${id}/generate`)
+      setSelected(res.data)
+      await fetchQuestions()
+    } catch (err) {
+      console.error('Failed to generate draft', err)
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -128,16 +142,27 @@ export default function Dashboard() {
 
             {/* Draft panel */}
             <div className="bg-gray-800 rounded-xl p-5 flex-1">
-              <h3 className="text-sm font-semibold text-gray-400 mb-3">
-                🐻 TechBear's Draft Response
-              </h3>
+              <div className="flex items-center justify-between mb-3">
+                <h3 className="text-sm font-semibold text-gray-400">
+                  🐻 TechBear's Draft Response
+                </h3>
+                <button
+                  onClick={() => generateDraft(selected.id)}
+                  disabled={generating}
+                  className="bg-cyan-600 hover:bg-cyan-500 disabled:bg-gray-600
+                             disabled:cursor-not-allowed text-xs px-3 py-1.5
+                             rounded-full font-semibold transition-colors"
+                >
+                  {generating ? '🐾 Drafting...' : '🐾 Generate Draft'}
+                </button>
+              </div>
               {selected.llm_draft ? (
                 <p className="text-gray-100 whitespace-pre-wrap">
                   {selected.llm_draft}
                 </p>
               ) : (
                 <p className="text-gray-500 italic">
-                  No draft generated yet. (LLM integration coming next.)
+                  No draft yet. Click "Generate Draft" to have TechBear take a crack at it.
                 </p>
               )}
             </div>
