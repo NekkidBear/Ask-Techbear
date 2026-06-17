@@ -11,7 +11,7 @@ from backend.models import Blocklist
 
 
 # =============================================================
-# Blocklist check — fast, synchronous, fuzzy matching
+# Blocklist check — fast, synchronous, fuzzy + prefix matching
 # =============================================================
 
 async def check_blocklist(
@@ -20,29 +20,39 @@ async def check_blocklist(
     threshold: int = 85,
 ) -> tuple[bool, str | None]:
     """
-    Checks text against the blocklist table using fuzzy matching.
-    Returns (is_flagged, matched_term).
+    Checks text against the blocklist table using exact substring,
+    prefix, and fuzzy matching. Returns (is_flagged, matched_term).
 
-    threshold: 0-100, higher = stricter exact match required.
-    85 catches near-misses (typos, leetspeak) without being
-    overly aggressive on unrelated words.
+    threshold: 0-100, higher = stricter exact match required for
+    the fuzzy pass. 85 catches near-misses (typos, leetspeak)
+    without being overly aggressive on unrelated words.
     """
     result = await db.execute(select(Blocklist))
     blocked_terms = result.scalars().all()
 
     text_lower = text.lower()
+    words = text_lower.split()
 
     for entry in blocked_terms:
         term_lower = entry.term.lower()
 
-        # Exact substring match — fastest path, catches most cases
+        # Stage 1 — exact substring match, fastest path
         if term_lower in text_lower:
             return True, entry.term
 
-        # Fuzzy match — catches typos/variations on individual words
-        words = text_lower.split()
         for word in words:
-            if fuzz.ratio(word, term_lower) >= threshold:
+            # Strip common trailing punctuation so "shit?" or "shit," match
+            cleaned_word = word.strip('.,!?;:"\'')
+
+            # Stage 2 — prefix match, catches word-form variants
+            # (-ing, -er, -s, -ed) without needing every variant listed.
+            # Length guard prevents short terms from over-matching
+            # (e.g. a 2-letter blocked term matching half the dictionary).
+            if len(term_lower) >= 3 and cleaned_word.startswith(term_lower):
+                return True, entry.term
+
+            # Stage 3 — fuzzy match, catches typos/obfuscation
+            if fuzz.ratio(cleaned_word, term_lower) >= threshold:
                 return True, entry.term
 
     return False, None
