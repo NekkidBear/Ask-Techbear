@@ -112,7 +112,7 @@ always has final override on the dashboard.
 
 ## Project Structure
 
-```
+```text
 ask-techbear/
 ├── backend/
 │   ├── main.py              # FastAPI app entry point
