@@ -71,6 +71,15 @@ async def seed_default_blocklist(db: AsyncSession):
         ("cunt", "profanity"),
         ("nigger", "profanity"),
         ("faggot", "profanity"),
+        # Clipped/short forms — added after testing showed truncated slurs
+        # (e.g. "fag" from "faggot") aren't caught by substring, prefix,
+        # or fuzzy matching against the longer term. Fuzzy match scores
+        # drop fast as the relative length difference grows, so these
+        # need their own explicit entries rather than relying on the
+        # existing terms to generalize down.
+        ("fag", "profanity"),
+        ("nig", "profanity"),
+        ("nigga", "profanity"),
         # Add more as needed — this is intentionally minimal,
         # the LLM topic filter catches more nuanced cases
     ]
