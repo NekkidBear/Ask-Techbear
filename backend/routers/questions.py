@@ -15,12 +15,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database import get_db
 from backend.models import Question, Session as EventSession
 from backend.services.llm import generate_techbear_response
+from backend.services.moderation import check_blocklist
 
 router = APIRouter()
 
 # =============================================================
 # Pydantic schemas — request/response shapes
 # =============================================================
+
 
 class QuestionSubmit(BaseModel):
     """Schema for attendee question submission."""
@@ -112,15 +114,21 @@ async def submit_question(
 ):
     """
     Public endpoint — attendee submits a question.
-    Sanitizes input, assigns to active session, saves to queue.
+    Sanitizes input, checks blocklist, assigns to active session.
     """
     session = await get_active_session(db)
+
+    # Stage 1 moderation — fast blocklist check
+    is_flagged, matched_term = await check_blocklist(
+        payload.question_text, db
+    )
 
     question = Question(
         session_id=session.id,
         attendee_name=payload.attendee_name,
         question_text=payload.question_text,
-        status="pending",
+        status="rejected" if is_flagged else "pending",
+        moderation_flag=matched_term if is_flagged else None,
     )
     db.add(question)
     await db.flush()
@@ -143,6 +151,20 @@ async def get_questions(
     result = await db.execute(query)
     return result.scalars().all()
 
+@router.get("/highlighted", response_model=list[QuestionResponse])
+async def get_highlighted_questions(
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Slideshow endpoint — returns all highlighted Q&As
+    for the between-shows display rotation.
+    """
+    result = await db.execute(
+        select(Question)
+        .where(Question.highlight == True)
+        .order_by(Question.answered_at.desc())
+    )
+    return result.scalars().all()
 
 @router.patch("/{question_id}", response_model=QuestionResponse)
 async def update_question(
