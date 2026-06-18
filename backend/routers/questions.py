@@ -10,10 +10,11 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
 from sqlalchemy import select
+from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db
-from backend.models import Question, Session as EventSession
+from backend.models import Question, Session as EventSession, PresentationVersion
 from backend.services.llm import generate_techbear_response
 from backend.services.moderation import check_blocklist
 
@@ -68,6 +69,9 @@ class QuestionResponse(BaseModel):
     highlight: bool
     llm_draft: Optional[str] = None
     answered_at: Optional[datetime] = None
+    # Populated on highlighted questions that have a PresentationVersion row.
+    # Slideshow uses this if present, falls back to llm_draft otherwise.
+    presentation_text: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -151,20 +155,38 @@ async def get_questions(
     result = await db.execute(query)
     return result.scalars().all()
 
+
 @router.get("/highlighted", response_model=list[QuestionResponse])
 async def get_highlighted_questions(
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Slideshow endpoint — returns all highlighted Q&As
-    for the between-shows display rotation.
+    Slideshow endpoint — returns all highlighted Q&As with their
+    presentation versions (if seeded), ordered by display_order then
+    answered_at. The slideshow uses presentation_text when available
+    and falls back to llm_draft so nothing goes blank.
     """
     result = await db.execute(
         select(Question)
+        .options(selectinload(Question.presentation_version))
         .where(Question.highlight == True)
-        .order_by(Question.answered_at.desc())
+        .order_by(
+            Question.display_order.asc().nullslast(),
+            Question.answered_at.desc(),
+        )
     )
-    return result.scalars().all()
+    questions = result.scalars().all()
+
+    # Build responses manually so we can inject presentation_text
+    # from the relationship without requiring it on the base model.
+    out = []
+    for q in questions:
+        data = QuestionResponse.model_validate(q)
+        if q.presentation_version:
+            data.presentation_text = q.presentation_version.display_text
+        out.append(data)
+    return out
+
 
 @router.patch("/{question_id}", response_model=QuestionResponse)
 async def update_question(

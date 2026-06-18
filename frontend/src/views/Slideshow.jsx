@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
 
 const DISPLAY_DURATION = 15000 // 15 seconds per card
@@ -8,12 +8,27 @@ export default function Slideshow() {
   const [index, setIndex] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  // Use a ref for the interval so startTimer can always close over
+  // the current highlights length without stale state issues.
+  const intervalRef = useRef(null)
+  const countRef = useRef(0)
+
+  const startTimer = useCallback(() => {
+    if (intervalRef.current) clearInterval(intervalRef.current)
+    if (countRef.current === 0) return
+    intervalRef.current = setInterval(() => {
+      setIndex(prev => (prev + 1) % countRef.current)
+    }, DISPLAY_DURATION)
+  }, [])
+
   // Fetch highlighted questions, refresh periodically
   useEffect(() => {
     const fetchHighlights = async () => {
       try {
         const res = await axios.get('/api/questions/highlighted')
         setHighlights(res.data)
+        countRef.current = res.data.length
+        startTimer()
       } catch (err) {
         console.error('Failed to fetch highlights', err)
       } finally {
@@ -23,19 +38,40 @@ export default function Slideshow() {
 
     fetchHighlights()
     const refreshInterval = setInterval(fetchHighlights, 30000)
-    return () => clearInterval(refreshInterval)
-  }, [])
+    return () => {
+      clearInterval(refreshInterval)
+      if (intervalRef.current) clearInterval(intervalRef.current)
+    }
+  }, [startTimer])
 
-  // Auto-cycle through highlights
+  // Manual navigation — resets the auto-advance timer
+  const goNext = useCallback(() => {
+    if (countRef.current === 0) return
+    setIndex(prev => (prev + 1) % countRef.current)
+    startTimer()
+  }, [startTimer])
+
+  const goPrev = useCallback(() => {
+    if (countRef.current === 0) return
+    setIndex(prev => (prev - 1 + countRef.current) % countRef.current)
+    startTimer()
+  }, [startTimer])
+
+  // Keyboard navigation (arrow keys)
   useEffect(() => {
-    if (highlights.length === 0) return
-    const cycleInterval = setInterval(() => {
-      setIndex(prev => (prev + 1) % highlights.length)
-    }, DISPLAY_DURATION)
-    return () => clearInterval(cycleInterval)
-  }, [highlights])
+    const handleKey = (e) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown') goNext()
+      if (e.key === 'ArrowLeft'  || e.key === 'ArrowUp'  ) goPrev()
+    }
+    window.addEventListener('keydown', handleKey)
+    return () => window.removeEventListener('keydown', handleKey)
+  }, [goNext, goPrev])
 
   const current = highlights[index]
+
+  // Prefer the formatted presentation_text; fall back to raw llm_draft
+  // so nothing goes blank if a presentation version hasn't been seeded yet.
+  const displayText = current?.presentation_text ?? current?.llm_draft
 
   // ── Holding screen — no highlights yet ──
   if (!loading && highlights.length === 0) {
@@ -88,22 +124,61 @@ export default function Slideshow() {
             TechBear said:
           </p>
           <p className="text-white text-xl leading-relaxed whitespace-pre-wrap">
-            {current.llm_draft}
+            {displayText}
           </p>
         </div>
 
-        {/* Progress dots */}
-        {highlights.length > 1 && (
-          <div className="flex justify-center gap-2 mt-8">
-            {highlights.map((_, i) => (
-              <div
-                key={i}
-                className={`w-2 h-2 rounded-full transition-colors
-                  ${i === index ? 'bg-cyan-400' : 'bg-gray-700'}`}
-              />
-            ))}
-          </div>
-        )}
+        {/* Navigation controls + progress */}
+        <div className="flex items-center justify-between mt-8">
+
+          {/* Prev button */}
+          <button
+            onClick={goPrev}
+            disabled={highlights.length <= 1}
+            aria-label="Previous question"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full
+                       bg-gray-800 text-gray-300 text-sm font-semibold
+                       hover:bg-gray-700 hover:text-white
+                       disabled:opacity-30 disabled:cursor-not-allowed
+                       transition-colors"
+          >
+            ← Prev
+          </button>
+
+          {/* Progress dots — also clickable */}
+          {highlights.length > 1 && (
+            <div className="flex gap-2">
+              {highlights.map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => {
+                    setIndex(i)
+                    startTimer()
+                  }}
+                  aria-label={`Go to question ${i + 1}`}
+                  className={`w-2.5 h-2.5 rounded-full transition-colors
+                    ${i === index
+                      ? 'bg-cyan-400 scale-125'
+                      : 'bg-gray-600 hover:bg-gray-400'}`}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Next button */}
+          <button
+            onClick={goNext}
+            disabled={highlights.length <= 1}
+            aria-label="Next question"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full
+                       bg-gray-800 text-gray-300 text-sm font-semibold
+                       hover:bg-gray-700 hover:text-white
+                       disabled:opacity-30 disabled:cursor-not-allowed
+                       transition-colors"
+          >
+            Next →
+          </button>
+        </div>
       </div>
     </div>
   )

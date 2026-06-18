@@ -67,8 +67,52 @@ class Question(Base):
     highlight = Column(Boolean, default=False)
     display_order = Column(Integer, nullable=True)
 
-    # Relationship back to session
+    # Relationships
     session = relationship("Session", back_populates="questions")
+    presentation_version = relationship(
+        "PresentationVersion",
+        back_populates="question",
+        uselist=False,   # one-to-one
+        cascade="all, delete-orphan",
+    )
+
+    @property
+    def presentation_text(self):
+        """
+        Returns the display-optimized text if one exists,
+        otherwise None (callers fall back to llm_draft).
+        """
+        if self.presentation_version:
+            return self.presentation_version.display_text
+        return None
+
+
+class PresentationVersion(Base):
+    """
+    Display-optimized version of a TechBear response for slideshow mode.
+
+    Linked to the original question via FK — never modifies source text.
+    Profanity is replaced with asterisk sequences; long responses are
+    summarized while preserving TechBear's voice and factual accuracy.
+    Formatted with line breaks and visual hierarchy for walk-by readability.
+
+    Created manually via seed script or moderator dashboard; updated
+    whenever a highlighted response needs re-editing for display.
+    """
+    __tablename__ = "presentation_versions"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    question_id = Column(
+        Integer,
+        ForeignKey("questions.id"),
+        nullable=False,
+        unique=True,   # one presentation version per question
+    )
+    display_text = Column(Text, nullable=False)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+
+    question = relationship("Question", back_populates="presentation_version")
 
 
 class SessionContext(Base):
