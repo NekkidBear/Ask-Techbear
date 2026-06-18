@@ -3,7 +3,9 @@
 ## v2 Ideas
 
 ### Adaptive moderation
+
 The blocklist/moderation system should learn from operator overrides over time:
+
 - If a question was auto-rejected (blocklist or LLM topic filter) but the operator
   approves it anyway → treat as a false positive signal, consider loosening that
   term's fuzzy match threshold or removing it
@@ -14,6 +16,7 @@ The blocklist/moderation system should learn from operator overrides over time:
   (fully automatic risks drift in either direction without human sanity-check)
 
 ### Topic duplication detection
+
 Avoid 3+ near-identical questions ("my wifi is broken") cluttering a single
 session. Lives alongside the RAG/embedding work below rather than the
 blocklist, since this is a semantic-similarity problem, not a pattern-match
@@ -92,6 +95,7 @@ it's hard to know what shape "gags across a session" should take without
 having run one.
 
 **Honest costs, not just upside, before building this:**
+
 - Roughly doubles inference calls per question. Latency matters live, on
   local hardware (Mac, Ollama), with an audience present and Jason
   performing in real time — worth actually timing stage 1 + stage 2
@@ -118,3 +122,23 @@ Prototype and time it only after a live event has actually been run.
 (Add more v2 ideas here as they come up — voice output, pre-scripted response
 triggers, corpus auto-update webhook, analytics dashboard, multi-event archive,
 Philip co-host mode — see original system design doc for the fuller v2 list.)
+
+## additional v2 Ideas
+
+### Summarize and format for presentation view
+
+Auto-generate the `presentation_versions` display text via LLM rather than
+hand-seeding. Natural fit as a stage 3 pass once the two-stage RAG pipeline
+exists, or as a flag on stage 2 output.
+
+### Multi-stage RAG pipeline (voice/fact separation)
+
+See existing detailed design notes below.
+
+### Realtime response loop — personal Q&A feedback
+
+Even if a question isn't highlighted, the submitter sees TechBear's response
+to their own question. Requires issuing an anonymous session token at
+submission time so the frontend can poll or subscribe to the right response.
+FastAPI SSE or WebSocket is the natural transport. Identity/token design is
+the prerequisite — start there before touching the delivery layer.
