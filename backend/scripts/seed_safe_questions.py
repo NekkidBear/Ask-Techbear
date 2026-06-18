@@ -20,3 +20,4 @@ async def seed_safe_questions(db: AsyncSession, session_id: int):
         ))
 
     await db.commit()
+    
