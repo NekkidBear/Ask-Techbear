@@ -146,3 +146,10 @@ the prerequisite — start there before touching the delivery layer.
 ## TODO: Fix the favicon display image
 
   Favicon is displaying the default browser globe instead of the custom Gymnarctos pawprint, despite the renamed image.
+
+## Additional ideas
+
+* implement a chat like system for realtime feedback. Limit it to 2 interaction cycles per user
+* implement a lead funnel. When interactions are deemed overly complex or will need multiple interactions, send them to teh google scheduling calendar for Gymnarctos to set up an appointment with Jason.
+* Adjust UI to feel like a 'Helpdesk Chat' interface. Add slideshow queue as 'hold music' along with a "Techbear is assisting another client. Please wait for him to finish. You're X in line." message.
+
