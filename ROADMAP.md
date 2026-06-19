@@ -142,3 +142,7 @@ to their own question. Requires issuing an anonymous session token at
 submission time so the frontend can poll or subscribe to the right response.
 FastAPI SSE or WebSocket is the natural transport. Identity/token design is
 the prerequisite — start there before touching the delivery layer.
+
+## TODO: Fix the favicon display image
+
+  Favicon is displaying the default browser globe instead of the custom Gymnarctos pawprint, despite the renamed image.

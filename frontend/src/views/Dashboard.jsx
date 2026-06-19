@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import axios from 'axios'
+// Import the custom avatar component safely!
+import TechbearAvatar from '../components/Techbearavatar'
 
 export default function Dashboard() {
   const [questions, setQuestions] = useState([])
@@ -66,8 +68,10 @@ export default function Dashboard() {
       {/* ── Sidebar: Queue ── */}
       <div className="w-96 border-r border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-700">
-          <h1 className="text-xl font-bold flex items-center gap-2">
-            🐻 TechBear Dashboard
+          <h1 className="text-xl font-bold flex items-center gap-3">
+            {/* Replaced placeholder emoji with small custom avatar */}
+            <TechbearAvatar size="sm" border={false} />
+            <span>TechBear Dashboard</span>
           </h1>
           <div className="flex gap-2 mt-3">
             {['pending', 'approved', 'all'].map(f => (
@@ -143,9 +147,13 @@ export default function Dashboard() {
             {/* Draft panel */}
             <div className="bg-gray-800 rounded-xl p-5 flex-1">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-sm font-semibold text-gray-400">
-                  🐻 TechBear's Draft Response
-                </h3>
+                <div className="flex items-center gap-2">
+                  {/* Replaced placeholder emoji with small custom avatar */}
+                  <TechbearAvatar size="sm" border={false} />
+                  <h3 className="text-sm font-semibold text-gray-400">
+                    TechBear's Draft Response
+                  </h3>
+                </div>
                 <button
                   onClick={() => generateDraft(selected.id)}
                   disabled={generating}
