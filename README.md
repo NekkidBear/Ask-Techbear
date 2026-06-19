@@ -90,7 +90,7 @@ Runs on `http://localhost:3000`.
 cloudflared tunnel run --token $CLOUDFLARE_TUNNEL_TOKEN <tunnel-id>
 ```
 
-Public submission URL resolves via QuicCloud DNS CNAME →
+Public submission URL resolves via Namecheap DNS CNAME →
 `ask.gymnarctosstudiosllc.com`.
 
 ## Important Notes

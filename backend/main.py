@@ -47,14 +47,15 @@ app = FastAPI(
 # =============================================================
 # CORS — controls which origins can call the API
 # The React frontend (port 3000) needs to be allowed.
-# The moderator dashboard is localhost only.
-# In production (tunnel), the public URL is also allowed.
+# The moderator dashboard is localhost only — never expose
+# /dashboard through the Cloudflare tunnel.
+# In production (tunnel), only the public submission URL is allowed.
 # =============================================================
 
 ALLOWED_ORIGINS = [
     "http://localhost:3000",        # React dev server
     "http://localhost:5173",        # Vite default port
-    "https://ask.gymnarctosstudiosllc.com",  # Public tunnel URL
+    "https://ask-techbear.gymnarctosstudiosllc.com",  # Public tunnel URL
 ]
 
 app.add_middleware(
@@ -66,14 +67,11 @@ app.add_middleware(
 )
 
 # =============================================================
-# Routers — imported here once they're built
-# Uncomment each as we build them
+# Routers
 # =============================================================
 
-from backend.routers import questions#, sessions, slideshow
+from backend.routers import questions
 app.include_router(questions.router, prefix="/api/questions", tags=["questions"])
-# app.include_router(sessions.router, prefix="/api/sessions", tags=["sessions"])
-# app.include_router(slideshow.router, prefix="/api/slideshow", tags=["slideshow"])
 
 
 # =============================================================
