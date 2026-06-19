@@ -13,7 +13,8 @@ export default function Submission() {
 
     setStatus('submitting')
     try {
-      await axios.post('/api/questions', {
+      // Fixed path: Appended the trailing slash to prevent FastAPI 307 redirects
+      await axios.post('/api/questions/', {
         attendee_name: name.trim(),
         question_text: question.trim(),
       })
@@ -28,7 +29,6 @@ export default function Submission() {
   if (status === 'success') {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center px-6">
-        {/* Render large avatar on success 🎉 */}
         <div className="mb-6">
           <TechbearAvatar size="lg" border={true} />
         </div>
@@ -49,7 +49,6 @@ export default function Submission() {
 
       {/* Header — messenger-style contact bar */}
       <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center gap-3">
-        {/* Render small avatar in the header bar */}
         <TechbearAvatar size="sm" border={false} />
         <div>
           <p className="text-white font-semibold text-sm">TechBear</p>
@@ -63,7 +62,6 @@ export default function Submission() {
       {/* Chat area — shows a greeting bubble */}
       <div className="flex-1 px-4 py-6 flex flex-col gap-4">
         <div className="flex items-start gap-3 max-w-xs">
-          {/* Render small avatar for the chat bubble */}
           <TechbearAvatar size="sm" border={false} />
           <div className="bg-gray-700 rounded-2xl rounded-tl-none px-4 py-3">
             <p className="text-white text-sm">

@@ -5,7 +5,8 @@ Gymnarctos Studios LLC
 
 import re
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, field_validator
@@ -62,6 +63,8 @@ class QuestionSubmit(BaseModel):
 class QuestionResponse(BaseModel):
     """Schema for question data returned to clients."""
     id: int
+    attendee_id: Optional[int] = None # Fallback flexibility
+    session_id: Optional[Union[UUID,str]] = None  # Match database schema fields safely
     attendee_name: str
     question_text: str
     status: str
@@ -69,8 +72,6 @@ class QuestionResponse(BaseModel):
     highlight: bool
     llm_draft: Optional[str] = None
     answered_at: Optional[datetime] = None
-    # Populated on highlighted questions that have a PresentationVersion row.
-    # Slideshow uses this if present, falls back to llm_draft otherwise.
     presentation_text: Optional[str] = None
 
     class Config:
@@ -137,7 +138,22 @@ async def submit_question(
     db.add(question)
     await db.flush()
     await db.refresh(question)
-    return question
+    
+    # Pack dictionary manually to bypass model relationship lazy-loading completely
+    question_dict = {
+        "id": question.id,
+        "session_id": str(question.session_id) if question.session_id else None,
+        "attendee_name": question.attendee_name,
+        "question_text": question.question_text,
+        "status": question.status,
+        "submitted_at": question.submitted_at,
+        "highlight": question.highlight,
+        "llm_draft": question.llm_draft,
+        "answered_at": question.answered_at,
+        "presentation_text": None  # Intentionally empty; newly born questions have no approved text yet
+    }
+    
+    return QuestionResponse.model_validate(question_dict)
 
 
 @router.get("/", response_model=list[QuestionResponse])
@@ -149,11 +165,23 @@ async def get_questions(
     Dashboard endpoint — returns question queue.
     Optionally filter by status.
     """
-    query = select(Question).order_by(Question.submitted_at.asc())
+    query = (
+        select(Question)
+        .options(selectinload(Question.presentation_version))
+        .order_by(Question.submitted_at.asc())
+    )
     if status:
         query = query.where(Question.status == status)
     result = await db.execute(query)
-    return result.scalars().all()
+    questions = result.scalars().all()
+
+    out = []
+    for q in questions:
+        data = QuestionResponse.model_validate(q)
+        if q.presentation_version:
+            data.presentation_text = q.presentation_version.display_text
+        out.append(data)
+    return out
 
 
 @router.get("/highlighted", response_model=list[QuestionResponse])
@@ -162,9 +190,7 @@ async def get_highlighted_questions(
 ):
     """
     Slideshow endpoint — returns all highlighted Q&As with their
-    presentation versions (if seeded), ordered by display_order then
-    answered_at. The slideshow uses presentation_text when available
-    and falls back to llm_draft so nothing goes blank.
+    presentation versions (if seeded).
     """
     result = await db.execute(
         select(Question)
@@ -177,8 +203,6 @@ async def get_highlighted_questions(
     )
     questions = result.scalars().all()
 
-    # Build responses manually so we can inject presentation_text
-    # from the relationship without requiring it on the base model.
     out = []
     for q in questions:
         data = QuestionResponse.model_validate(q)
@@ -198,7 +222,7 @@ async def update_question(
     Dashboard endpoint — update question status, highlight, draft.
     """
     result = await db.execute(
-        select(Question).where(Question.id == question_id)
+        select(Question).options(selectinload(Question.presentation_version)).where(Question.id == question_id)
     )
     question = result.scalar_one_or_none()
     if not question:
@@ -215,7 +239,11 @@ async def update_question(
 
     await db.flush()
     await db.refresh(question)
-    return question
+    
+    response_data = QuestionResponse.model_validate(question)
+    if question.presentation_version:
+        response_data.presentation_text = question.presentation_version.display_text
+    return response_data
 
 
 @router.post("/{question_id}/generate", response_model=QuestionResponse)
@@ -225,17 +253,14 @@ async def generate_draft(
 ):
     """
     Triggers TechBear's LLM to draft a response for this question.
-    Called from the moderator dashboard's "Generate Draft" button.
     """
     result = await db.execute(
-        select(Question).where(Question.id == question_id)
+        select(Question).options(selectinload(Question.presentation_version)).where(Question.id == question_id)
     )
     question = result.scalar_one_or_none()
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
 
-    # TODO: pull rolling context from session_context table
-    # TODO: pull RAG context from ChromaDB once corpus is built
     draft = await generate_techbear_response(
         sanitized_question=question.question_text,
         rolling_context="",
@@ -246,4 +271,8 @@ async def generate_draft(
     question.draft_generated_at = datetime.utcnow()
     await db.flush()
     await db.refresh(question)
-    return question
+    
+    response_data = QuestionResponse.model_validate(question)
+    if question.presentation_version:
+        response_data.presentation_text = question.presentation_version.display_text
+    return response_data
