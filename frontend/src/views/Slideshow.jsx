@@ -99,7 +99,7 @@ export default function Slideshow() {
       >
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-16 h-16 rounded-full bg-cyan-500 flex items-center justify-center text-3xl flex-shrink-0">
+          <div className="w-16 h-16 rounded-full bg-cyan-500 flex items-center justify-center text-3xl shrink-0">
             🐻
           </div>
           <div>

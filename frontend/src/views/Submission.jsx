@@ -1,8 +1,6 @@
 import { useState } from 'react'
 import axios from 'axios'
-
-// Placeholder avatar — replace with actual TechBear image later
-const TECHBEAR_AVATAR = '/techbear-avatar.png'
+import TechbearAvatar from './Techbearavatar' // Beautifully imported
 
 export default function Submission() {
   const [name, setName] = useState('')
@@ -30,8 +28,9 @@ export default function Submission() {
   if (status === 'success') {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center px-6">
-        <div className="w-20 h-20 rounded-full bg-cyan-500 flex items-center justify-center text-4xl mb-6">
-          🐻
+        {/* Render large avatar on success 🎉 */}
+        <div className="mb-6">
+          <TechbearAvatar size="lg" border={true} />
         </div>
         <h2 className="text-white text-2xl font-bold mb-3 text-center">
           TechBear got your question, sugar!
@@ -50,9 +49,8 @@ export default function Submission() {
 
       {/* Header — messenger-style contact bar */}
       <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center gap-3">
-        <div className="w-10 h-10 rounded-full bg-cyan-500 flex items-center justify-center text-xl">
-          🐻
-        </div>
+        {/* Render small avatar in the header bar */}
+        <TechbearAvatar size="sm" border={false} />
         <div>
           <p className="text-white font-semibold text-sm">TechBear</p>
           <p className="text-green-400 text-xs">● Online and ready to help</p>
@@ -65,9 +63,8 @@ export default function Submission() {
       {/* Chat area — shows a greeting bubble */}
       <div className="flex-1 px-4 py-6 flex flex-col gap-4">
         <div className="flex items-start gap-3 max-w-xs">
-          <div className="w-8 h-8 rounded-full bg-cyan-500 flex items-center justify-center text-sm flex-shrink-0">
-            🐻
-          </div>
+          {/* Render small avatar for the chat bubble */}
+          <TechbearAvatar size="sm" border={false} />
           <div className="bg-gray-700 rounded-2xl rounded-tl-none px-4 py-3">
             <p className="text-white text-sm">
               Well hello there, sugar! 👋 Got a tech question?
@@ -115,7 +112,7 @@ export default function Submission() {
             className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-gray-600
                        disabled:cursor-not-allowed text-white rounded-full
                        w-10 h-10 flex items-center justify-center
-                       text-lg flex-shrink-0 transition-colors"
+                       text-lg shrink-0 transition-colors"
           >
             {status === 'submitting' ? '⏳' : '🐾'}
           </button>
