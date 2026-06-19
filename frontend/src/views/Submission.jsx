@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import axios from 'axios'
-import TechbearAvatar from './Techbearavatar' // Beautifully imported
+import TechbearAvatar from '../components/Techbearavatar' // Beautifully imported
 
 export default function Submission() {
   const [name, setName] = useState('')
