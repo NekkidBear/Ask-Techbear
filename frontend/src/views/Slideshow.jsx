@@ -1,5 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import axios from 'axios'
+// Import the custom avatar component safely!
+import TechbearAvatar from '../components/Techbearavatar'
 
 const DISPLAY_DURATION = 15000 // 15 seconds per card
 
@@ -77,8 +79,9 @@ export default function Slideshow() {
   if (!loading && highlights.length === 0) {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center">
-        <div className="w-24 h-24 rounded-full bg-cyan-500 flex items-center justify-center text-5xl mb-6 animate-pulse">
-          🐻
+        {/* Render big avatar on holding page 🎉 */}
+        <div className="mb-6 animate-pulse">
+          <TechbearAvatar size="lg" border={true} />
         </div>
         <h1 className="text-white text-3xl font-bold mb-2">Ask TechBear</h1>
         <p className="text-gray-400 text-lg">Got a tech question? Scan the QR code below!</p>
@@ -99,9 +102,8 @@ export default function Slideshow() {
       >
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
-          <div className="w-16 h-16 rounded-full bg-cyan-500 flex items-center justify-center text-3xl shrink-0">
-            🐻
-          </div>
+          {/* Render medium avatar for the main presentation header */}
+          <TechbearAvatar size="md" border={true} />
           <div>
             <h2 className="text-white text-2xl font-bold">Ask TechBear</h2>
             <p className="text-gray-400 text-sm">Gymnarctos Studios</p>
@@ -140,7 +142,7 @@ export default function Slideshow() {
                        bg-gray-800 text-gray-300 text-sm font-semibold
                        hover:bg-gray-700 hover:text-white
                        disabled:opacity-30 disabled:cursor-not-allowed
-                       transition-colors"
+                       transition-colors shrink-0"
           >
             ← Prev
           </button>
@@ -174,7 +176,7 @@ export default function Slideshow() {
                        bg-gray-800 text-gray-300 text-sm font-semibold
                        hover:bg-gray-700 hover:text-white
                        disabled:opacity-30 disabled:cursor-not-allowed
-                       transition-colors"
+                       transition-colors shrink-0"
           >
             Next →
           </button>
