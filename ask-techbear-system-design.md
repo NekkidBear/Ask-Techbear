@@ -1,5 +1,6 @@
 # Ask TechBear — System Design Document
-*Version 1.0 | Gymnarctos Studios LLC*
+
+    *Version 1.0 | Gymnarctos Studios LLC*
 
 ---
 
@@ -14,7 +15,7 @@ The LLM is a **writer's assistant and drafting tool**, not a direct-to-public ch
 ## System Modes
 
 | Mode | Description | Who sees it |
-|---|---|---|
+| --- | --- | --- |
 | **Submission** | Attendee submits name + question via form (QR → URL) | Attendees on their phones |
 | **Live Show** | Moderator dashboard — queue, LLM draft, show controls | Jason (operator) on laptop |
 | **Slideshow** | Auto-scrolling highlights reel of best Q&As | Big screen / projector, between shows |
@@ -51,6 +52,7 @@ The LLM is a **writer's assistant and drafting tool**, not a direct-to-public ch
 ## Tech Stack
 
 ### Local LLM
+
 - **Ollama** — runs locally, Apple Silicon optimized, uses Metal GPU acceleration
 - **Recommended models** (pick based on your RAM):
   - 16GB RAM → `llama3.2:latest` (8B, fast, good quality)
@@ -59,26 +61,31 @@ The LLM is a **writer's assistant and drafting tool**, not a direct-to-public ch
 - Install: `brew install ollama && ollama pull llama3.2`
 
 ### RAG Layer
+
 - **ChromaDB** — local vector database, zero config, persists to disk
 - **LangChain** — orchestrates chunking, embedding, retrieval pipeline
 - **Embedding model** — `nomic-embed-text` via Ollama (free, local, fast)
 - **Corpus** — TechBear blog articles chunked at ~500 tokens with 50-token overlap
 
 ### Backend
+
 - **FastAPI** (Python) — async, fast, WebSocket support for live dashboard updates
 - **SQLAlchemy** + **asyncpg** — ORM for Postgres
 - **WebSockets** — real-time push to moderator dashboard (no polling)
 
 ### Database
+
 - **PostgreSQL** (local instance)
 - Manages question queue, session history, highlight flags, moderation log
 
 ### Frontend
+
 - **React** (Vite) — single app, three views
 - **Tailwind CSS** — utility styling, mobile-friendly submission form
 - **WebSocket client** — dashboard receives live updates
 
 ### Networking (QR Code / Public URL)
+
 - **Cloudflare Tunnel** — maps `ask.gymnarctosstudios.com` → `localhost:3000`
 - Free, permanent subdomain, survives NAT, no router config needed
 - Install: `brew install cloudflared`
@@ -187,6 +194,7 @@ but here's what I CAN tell you..."
 ## RAG Pipeline
 
 ### Corpus Ingestion (one-time setup script)
+
 ```
 1. Load all TechBear blog articles (markdown or HTML → strip to text)
 2. Chunk at 500 tokens, 50-token overlap, with metadata: {source_url, article_title, date}
@@ -195,6 +203,7 @@ but here's what I CAN tell you..."
 ```
 
 ### At Query Time
+
 ```
 1. Embed the attendee's question
 2. Retrieve top 3–5 chunks from ChromaDB by cosine similarity
@@ -211,12 +220,14 @@ but here's what I CAN tell you..."
 Two-stage filter, runs before the question hits the LLM queue:
 
 **Stage 1 — Blocklist (instant, synchronous)**
+
 - Check `question_text` against `blocklist` table
 - Fuzzy match (not just exact) — use `rapidfuzz` library
 - If flagged: auto-reject, log reason, never enters queue
 - Operator can review rejected questions on dashboard
 
 **Stage 2 — Topic filter (LLM-assisted, async)**
+
 - Small, fast Ollama call: "Is this question appropriate for a family-friendly tech event? Answer YES or NO and one reason."
 - Use a tiny fast model for this (e.g., `llama3.2:1b`) — speed matters
 - If NO: flag for operator review, hold from queue
@@ -229,6 +240,7 @@ Two-stage filter, runs before the question hits the LLM queue:
 ## Frontend: Three Views
 
 ### View 1 — Submission Form (Public / Attendee-Facing)
+
 - Messenger-style aesthetic — dark theme, TechBear avatar as "contact"
 - Fields: **Your Name** + **Your Question** (textarea, 500 char max)
 - Submit button: "Ask TechBear!"
@@ -238,6 +250,7 @@ Two-stage filter, runs before the question hits the LLM queue:
 - QR code resolves here via Cloudflare Tunnel
 
 ### View 2 — Moderator Dashboard (Jason's screen, localhost only)
+
 - Protected — only accessible on local network (not exposed via tunnel)
 - Columns:
   - **Queue** — pending questions, oldest first; click to select
@@ -250,6 +263,7 @@ Two-stage filter, runs before the question hits the LLM queue:
 - Moderation review panel: flagged items needing operator decision
 
 ### View 3 — Slideshow (Display / Projector)
+
 - Full-screen, dark background, TechBear branding
 - Auto-cycles through `highlight = TRUE` questions
 - Shows: **[Name] asked:** question text → **TechBear said:** response text
