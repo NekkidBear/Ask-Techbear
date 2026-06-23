@@ -1,0 +1,75 @@
+id,attendee_name,question,model,mode,response,latency_s,tokens
+1,Clueless in Cincinnati,"I received a lovely anonymous gift today. Someone threw an envelope labeled ""For Elizabeth, or Vera, or whatever you call yourself these days"" through my open window. Inside was a USB thumb drive. I have no idea who this person is or what they want me to do with it. I am curious as hell to find out what's on it though — but you've trained your technocub well, sensei. I thought I'd ask you first.",mistral:latest,raw," It's always exciting to receive a mysterious gift! However, in this case, it's crucial to prioritize safety and caution. Here are some steps you can take:
+
+1. **Do not open or use the USB drive on your primary computer.** Connecting an unverified drive could potentially infect your device with malware.
+
+2. **Create a disposable system for analysis.** You can create a disposable virtual machine (VM) or use an old, unused computer for this purpose. This way, if there's any risk involved, it won't affect your main system.
+
+3. **Scan the USB drive thoroughly.** Use reliable antivirus software to scan the drive in the isolated system. If the file doesn't contain malware, you can proceed to open it.
+
+4. **Open and analyze the content safely.** If the drive contains files, carefully review them without making any changes or adding new files. This could help you understand what the sender intended for you.
+
+5. **Trace the USB drive if possible.** If there's no sensitive information on the drive, you might want to find out who sent it. You can do this by looking for any clues in the file metadata (such as timestamps, creator, or comments) or checking the USB drive itself for traces of the sender.
+
+6. **Consider reaching out to the sender.** If you feel comfortable doing so and believe there's no danger involved, you might want to contact the sender to thank them or ask questions about their intentions. Be careful not to share personal information that could compromise your privacy.",13.079,340
+4,Clueless in Cincinnati,"I received a lovely anonymous gift today. Someone threw an envelope labeled ""For Elizabeth, or Vera, or whatever you call yourself these days"" through my open window. Inside was a USB thumb drive. I have no idea who this person is or what they want me to do with it. I am curious as hell to find out what's on it though — but you've trained your technocub well, Sensei. I thought I'd ask you first.",mistral:latest,raw," It's always exciting to receive a mysterious gift, and in today's digital age, a USB drive can contain various types of data. However, before exploring the contents, it's essential to prioritize security and privacy. Here are some steps you should follow:
+
+1. Do not plug the USB drive into your computer just yet! Connecting unknown devices to your system could potentially expose it to malware or other threats.
+
+2. Create a safe environment for analyzing the contents of the drive. Ideally, use a dedicated computer or virtual machine that is not connected to your primary network to minimize any potential risks.
+
+3. If you don't have access to a separate device, scan the USB drive with reliable antivirus software on your main system before opening any files. This should help protect your system from any hidden malware.
+
+4. Once the device is safely connected, take note of the file types and filenames present on the drive. This can provide some clues about the contents and intended recipient(s).
+
+5. If the files appear harmless and you still want to learn more about their origin, use a digital forensics tool such as Autopsy (https://www.autopsy.usc.edu/) or Plaso (http://code.google.com/p/plaso/) to examine metadata associated with the files, which may contain additional information about the creator and date of creation.
+
+6. Be cautious when opening any documents, as they could still contain viruses or malware that could infect your system. If you decide to open a file, use a program like LibreOffice (https://www.libreoffice.org/) or Google Docs to view the contents without installing additional software.
+
+7. Keep in mind that the USB drive may contain personal information about someone else, so always respect privacy and avoid sharing any sensitive data you find on the drive with others. If necessary, contact local law enforcement if you believe the contents of the drive might be related to illegal activities.",12.421,434
+5,Bob,My fucking laptop crashes every time I open more than 3 tabs. Can you tell me why it does this shite?,mistral:latest,raw," I'm here to help! The issue you're experiencing might be due to a few reasons:
+
+1. **Insufficient RAM**: If your laptop has low RAM (less than 8GB), opening multiple tabs in browsers can cause the system to run out of memory, leading to crashes.
+
+2. **Outdated or resource-intensive software**: Some browser extensions, apps, or outdated software can consume a lot of resources and slow down your computer, causing it to crash when too many are running simultaneously.
+
+3. **Overheating**: If the laptop gets too hot, it may automatically shut down to prevent hardware damage. Make sure that your laptop is not overheating by checking its temperature regularly and ensuring proper ventilation.
+
+4. **Hardware problems**: There could be a hardware issue such as a failing hard drive or other components that are causing your computer to crash.
+
+To troubleshoot the problem, you can try the following steps:
+
+- Close unnecessary apps and extensions in your browser to reduce the load on your system.
+- Update your browser and operating system to ensure they're running the latest versions, which often include performance improvements and bug fixes.
+- Use a lighter browser like Google Chrome's ""Chromium"" or Mozilla Firefox for less resource-intensive browsing experiences.
+- Clean your laptop of dust and debris to prevent overheating.
+- Perform a system scan with antivirus software to check for any malware that could be consuming resources.
+- If the problem persists, consider upgrading your RAM or seeking professional help to diagnose potential hardware issues.",10.104,351
+6,Bob,My fucking laptop crashes every time I open more than 3 tabs. Can you tell me why it does this shite?,mistral:latest,raw," I'm sorry to hear about the issues you're experiencing with your laptop. The problem might be due to several reasons:
+
+1. Insufficient RAM: If your laptop has less than 8GB of RAM, running multiple tabs in browsers like Google Chrome or Firefox can consume a lot of memory, causing the system to slow down and eventually crash.
+
+2. Background processes: Other applications running in the background might be consuming resources and contributing to the laptop's poor performance.
+
+3. Browser issues: It could also be that your browser is not functioning optimally, with unnecessary extensions or settings consuming too many system resources.
+
+4. Overheating: If your laptop is overheating due to excessive use, it can cause performance issues and crashes. Make sure your laptop's cooling system is working properly and that it's not blocked by dust or debris.
+
+To troubleshoot the issue, you could try the following steps:
+
+1. Close unnecessary applications running in the background.
+2. Limit the number of tabs open in your browser and clear the cache regularly.
+3. Disable unused extensions in your browser.
+4. Ensure that your laptop's cooling system is clean and working properly.
+5. Consider upgrading your laptop's RAM if it has less than 8GB.",8.079,287
+7,Carol,My shitty ex-boyfriend put a password on my laptop and now I can't use it! Can you help?,mistral:latest,raw," I'm here to help! However, I should clarify that I can provide general advice but I don't have the ability to directly access or control your devices. Here are some steps you can take to reset the password on your laptop:
+
+1. For Windows laptops, there is a built-in tool called ""Windows Password Recovery"" that allows you to reset the password if you have access to another functional computer. You'll need to download this software onto the second computer and create a bootable USB drive or CD/DVD with the recovery tools on it. Once done, insert the media into your locked laptop and restart it to boot from the drive. Follow the prompts to reset your password.
+
+2. If your laptop is a Mac, you might be able to reset the password by booting into Recovery Mode. Here's how:
+   - Restart your Mac.
+   - Immediately after you hear the startup sound, hold down Command + R until the Apple logo appears.
+   - Choose Utilities > Reset Password from the menu bar at the top of the screen.
+   - Select the user account and enter a new password twice to confirm it.
+
+3. If neither method works or if you're unable to access another computer, consider contacting a professional for assistance. They may be able to help you regain access to your laptop without causing data loss.",8.492,297

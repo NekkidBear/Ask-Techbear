@@ -5,7 +5,7 @@ All systems (benchmark, live, async) must import from here.
 
 from pathlib import Path
 
-CHARACTER_PATH = Path(__file__).resolve().parents[2] / "character_file.md"
+CHARACTER_PATH = Path(__file__).resolve().parents[1] / "character_file.md"
 
 
 def load_character_prompt() -> str:

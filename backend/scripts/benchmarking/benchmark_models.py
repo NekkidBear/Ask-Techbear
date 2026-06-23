@@ -15,6 +15,7 @@ import argparse
 import csv
 from datetime import datetime
 from pathlib import Path
+import sys
 
 import requests
 
@@ -170,8 +171,13 @@ def main() -> None:
 
     if not args.skip_health:
         print("Running environment health checks...\n")
-        run_all_checks()
-
+        passed = run_all_checks()
+        if not passed:
+            print(
+                "Fix failing checks before benchmarking, "
+                "or use --skip-health to bypass."
+            )
+            sys.exit(1)
     # =====================================================
     # SETUP
     # =====================================================
