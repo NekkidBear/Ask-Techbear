@@ -2,11 +2,12 @@
 Post-processing + visualization for TechBear benchmark results.
 """
 
+from pathlib import Path
 import pandas as pd
 import matplotlib.pyplot as plt
 
 
-def load_results(csv_path: str) -> pd.DataFrame:
+def load_results(csv_path: str | Path) -> pd.DataFrame:
     """Load benchmark CSV into a DataFrame."""
     return pd.read_csv(csv_path)
 
@@ -60,7 +61,7 @@ def plot_tokens(summary_df: pd.DataFrame) -> None:
 # Programmatic entry point (called from benchmark_models.py)
 # ---------------------------------------------------------
 
-def run_analysis(csv_path: str) -> None:
+def run_analysis(csv_path: str | Path) -> None:
     """Load results from csv_path, print summary, and render charts."""
     results_df = load_results(csv_path)
     summary = summarize(results_df)

@@ -13,8 +13,12 @@ EMBED_MODEL = "nomic-embed-text"
 
 
 class TechBearRetriever:
+    """
+    Retrieves fact and voice context from ChromaDB collections
+    using Ollama embeddings for semantic search.
+    """
 
-    def __init__(self, db_path="./chroma_db"):
+    def __init__(self, db_path: str = "./chroma_db"):
         self._embed_fn = OllamaEmbeddingFunction(
             url=OLLAMA_EMBED_URL,
             model_name=EMBED_MODEL,
@@ -22,26 +26,39 @@ class TechBearRetriever:
 
         self.client = chromadb.PersistentClient(path=db_path)
 
-        self.facts = self.client.get_collection(
+        self.facts = self.client.get_or_create_collection(
             "techbear_facts",
-            embedding_function=self._embed_fn
+            embedding_function=self._embed_fn  # type: ignore[arg-type]
         )
-        self.voice = self.client.get_collection(
+        self.voice = self.client.get_or_create_collection(
             "techbear_voice",
-            embedding_function=self._embed_fn
+            embedding_function=self._embed_fn  # type: ignore[arg-type]
         )
+
+    # -----------------------------------------------------
+    # HEALTH
+    # -----------------------------------------------------
+
+    def collection_counts(self) -> dict[str, int]:
+        """Return document counts for both collections."""
+        return {
+            "techbear_facts": self.facts.count(),
+            "techbear_voice": self.voice.count(),
+        }
 
     # -----------------------------------------------------
     # FACT RETRIEVAL
     # -----------------------------------------------------
 
-    def get_facts(self, query, k=6):
+    def get_facts(self, query: str, k: int = 6) -> str:
+        """Retrieve and format fact chunks relevant to query."""
         results = self.facts.query(
             query_texts=[query],
             n_results=k
         )
 
-        docs = results.get("documents", [[]])[0]
+        doc_lists = results.get("documents") or [[]]
+        docs = doc_lists[0]
 
         return self._format(docs, label="FACT")
 
@@ -49,13 +66,15 @@ class TechBearRetriever:
     # VOICE RETRIEVAL
     # -----------------------------------------------------
 
-    def get_voice(self, query, k=4):
+    def get_voice(self, query: str, k: int = 4) -> str:
+        """Retrieve and format voice example chunks relevant to query."""
         results = self.voice.query(
             query_texts=[query],
             n_results=k
         )
 
-        docs = results.get("documents", [[]])[0]
+        doc_lists = results.get("documents") or [[]]
+        docs = doc_lists[0]
 
         return self._format(docs, label="VOICE")
 
@@ -63,8 +82,31 @@ class TechBearRetriever:
     # FORMATTER
     # -----------------------------------------------------
 
-    def _format(self, docs, label):
+    def _format(self, docs: list[str], label: str) -> str:
+        """Format retrieved docs into numbered prompt blocks."""
         return "\n\n".join(
             f"[{label} {i+1}]\n{doc}"
             for i, doc in enumerate(docs)
         )
+
+
+# =========================================================
+# LAZY SINGLETON
+# =========================================================
+
+class _RetrieverSingleton:
+    """Holds a single shared TechBearRetriever instance."""
+
+    _instance: TechBearRetriever | None = None
+
+    @classmethod
+    def get(cls) -> TechBearRetriever:
+        """Return shared TechBearRetriever, initializing if needed."""
+        if cls._instance is None:
+            cls._instance = TechBearRetriever()
+        return cls._instance
+
+
+def get_retriever() -> TechBearRetriever:
+    """Return shared TechBearRetriever instance."""
+    return _RetrieverSingleton.get()

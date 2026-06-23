@@ -7,6 +7,8 @@ Changes:
 - Adds analysis + matplotlib reporting hook
 - Keeps raw CSV exports
 - Supports dynamic Ollama model discovery
+- Wires real RAG retrieval via TechBearRetriever
+- Adds environment health check before benchmark run
 """
 
 import argparse
@@ -20,6 +22,8 @@ from backend.scripts.benchmarking.data_loader import load_questions
 from backend.scripts.benchmarking.pipeline import run_pipeline
 from backend.scripts.character_loader import load_character_prompt
 from backend.scripts.benchmarking.analyze_benchmark_results import run_analysis
+from backend.services.rag.retriever import get_retriever
+from backend.scripts.environment_health import run_all_checks
 
 
 OUTPUT_DIR = Path("benchmark_results")
@@ -62,6 +66,8 @@ def build_prompt_builder(character_text: str, mode: str):
     Returns a function(question) -> prompt.
 
     This isolates ALL persona injection to one place.
+    RAG retrieval is performed live per question for rag_facts
+    and rag_full modes.
     """
 
     def builder(question: str) -> str:
@@ -73,15 +79,19 @@ def build_prompt_builder(character_text: str, mode: str):
             return f"{character_text}\n\nQUESTION:\n{question}"
 
         if mode == "rag_facts":
+            facts = get_retriever().get_facts(question)
             return (
-                f"{character_text}\n\nFACTS CONTEXT:\n(placeholder)"
+                f"{character_text}\n\nFACTS CONTEXT:\n{facts}"
                 f"\n\nQUESTION:\n{question}"
             )
 
         if mode == "rag_full":
+            facts = get_retriever().get_facts(question)
+            voice = get_retriever().get_voice(question)
             return (
-                f"{character_text}\n\nFACTS CONTEXT:\n(placeholder)"
-                f"\n\nVOICE CONTEXT:\n(placeholder)\n\nQUESTION:\n{question}"
+                f"{character_text}\n\nFACTS CONTEXT:\n{facts}"
+                f"\n\nVOICE CONTEXT:\n{voice}"
+                f"\n\nQUESTION:\n{question}"
             )
 
         raise ValueError(f"Unknown mode: {mode}")
@@ -93,12 +103,12 @@ def build_prompt_builder(character_text: str, mode: str):
 # BENCHMARK EXECUTION
 # =========================================================
 
-def run_benchmark(host, model, mode, questions, prompt_builder):
+def run_benchmark(host: str, model: str, mode: str, questions: list, prompt_builder) -> list:
     """Run all questions through the pipeline for a given model and mode."""
     results = []
 
     for i, item in enumerate(questions, 1):
-        print(f"[{model}] {i}/{len(questions)}")
+        print(f"[{model}] [{mode}] {i}/{len(questions)}")
 
         result = run_pipeline(
             question=item["question"],
@@ -121,7 +131,7 @@ def run_benchmark(host, model, mode, questions, prompt_builder):
     return results
 
 
-def write_csv(results, path):
+def write_csv(results: list, path: Path) -> None:
     """Write a list of result dicts to a CSV file."""
     if not results:
         return
@@ -136,7 +146,7 @@ def write_csv(results, path):
 # MAIN
 # =========================================================
 
-def main():
+def main() -> None:
     """Entry point for TechBear benchmark orchestration."""
     parser = argparse.ArgumentParser()
 
@@ -144,17 +154,33 @@ def main():
     parser.add_argument("--models", nargs="+", default=None)
     parser.add_argument("--modes", nargs="+", default=MODES)
     parser.add_argument("--limit", type=int, default=None)
+    parser.add_argument(
+        "--skip-health",
+        action="store_true",
+        help="Skip environment health checks (not recommended)"
+    )
 
     args = parser.parse_args()
 
     print("\nTechBear Benchmark v2.2 (Character-Decoupled)\n")
+
+    # =====================================================
+    # HEALTH CHECK
+    # =====================================================
+
+    if not args.skip_health:
+        print("Running environment health checks...\n")
+        run_all_checks()
+
+    # =====================================================
+    # SETUP
+    # =====================================================
 
     questions = load_questions(limit=args.limit)
     print(f"Loaded {len(questions)} questions\n")
 
     character_text = load_character_prompt()
 
-    # Discover models
     if args.models:
         models = args.models
     else:
@@ -162,6 +188,7 @@ def main():
         models = filter_models(list_ollama_models(args.host))
 
     print(f"Models: {models}\n")
+    print(f"Modes: {args.modes}\n")
 
     all_results = []
 
@@ -206,7 +233,7 @@ def main():
     # =====================================================
 
     print("\nRunning analysis + charts...\n")
-    run_analysis(combined)
+    run_analysis(str(combined))
 
 
 if __name__ == "__main__":
