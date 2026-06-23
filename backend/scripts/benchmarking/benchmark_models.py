@@ -1,5 +1,6 @@
 """
-TechBear Model Benchmark Orchestration Script (v2)
+TechBear Model Benchmark Orchestration Script (v2.1)
+- Now supports dynamic Ollama model discovery
 """
 
 import argparse
@@ -7,8 +8,10 @@ import csv
 from datetime import datetime
 from pathlib import Path
 
-from data_loader import load_questions
-from pipeline import run_pipeline
+import requests
+
+from backend.scripts.benchmarking.data_loader import load_questions
+from backend.scripts.benchmarking.pipeline import run_pipeline
 
 
 OUTPUT_DIR = Path("benchmark_results")
@@ -19,12 +22,40 @@ MODES = [
     "raw",
     "prompt_only",
     "rag_facts",
-    "rag_full"
+    "rag_full",
 ]
 
 
-def run_benchmark(host, model, questions, mode, retriever=None):
+# =========================================================
+# Model discovery (NEW)
+# =========================================================
 
+def list_ollama_models(host: str) -> list[str]:
+    """Fetch installed Ollama models dynamically."""
+    url = f"http://{host}:11434/api/tags"
+    r = requests.get(url, timeout=5)
+    r.raise_for_status()
+
+    data = r.json()
+    return [m["name"] for m in data.get("models", [])]
+
+
+def filter_models(models: list[str]) -> list[str]:
+    """
+    Remove obviously non-generative or irrelevant models
+    (e.g., embeddings-only models).
+    """
+    return [
+        m for m in models
+        if "embed" not in m.lower()
+    ]
+
+
+# =========================================================
+# Benchmark runner
+# =========================================================
+
+def run_benchmark(host, model, questions, mode, retriever=None):
     results = []
 
     for i, item in enumerate(questions, 1):
@@ -35,7 +66,7 @@ def run_benchmark(host, model, questions, mode, retriever=None):
             model=model,
             host=host,
             mode=mode,
-            retriever=retriever
+            retriever=retriever,
         )
 
         results.append({
@@ -46,7 +77,7 @@ def run_benchmark(host, model, questions, mode, retriever=None):
             "mode": mode,
             "response": result["response"],
             "latency_s": result["total_time_s"],
-            "tokens": result["tokens_generated"]
+            "tokens": result["tokens_generated"],
         })
 
     return results
@@ -62,8 +93,11 @@ def write_csv(results, path):
         writer.writerows(results)
 
 
-def main():
+# =========================================================
+# Main
+# =========================================================
 
+def main():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--host", default="localhost")
@@ -71,27 +105,47 @@ def main():
     parser.add_argument(
         "--models",
         nargs="+",
-        default=["qwen2.5:7b", "mistral:latest", "llama3.1:8b"]
+        default=None,
+        help="Models to benchmark. If omitted, uses all Ollama models."
     )
 
     parser.add_argument(
         "--modes",
         nargs="+",
-        default=MODES
+        default=MODES,
+        help="Benchmark modes to run."
     )
 
     parser.add_argument("--limit", type=int, default=None)
 
     args = parser.parse_args()
 
-    print("\nTechBear Benchmark v2 (RAG-READY)\n")
+    print("\nTechBear Benchmark v2.1 (Dynamic Ollama Models)\n")
 
     questions = load_questions(limit=args.limit)
     print(f"Loaded {len(questions)} questions\n")
 
+    # =====================================================
+    # Model selection (UPDATED)
+    # =====================================================
+
+    if args.models:
+        models = args.models
+        print("Using CLI-provided models.")
+    else:
+        print("No --models provided. Discovering Ollama models...")
+        models = list_ollama_models(args.host)
+        models = filter_models(models)
+
+    print(f"\nModels to benchmark: {models}\n")
+
+    # =====================================================
+    # Run benchmarks
+    # =====================================================
+
     all_results = []
 
-    for model in args.models:
+    for model in models:
         for mode in args.modes:
 
             print(f"\n=== {model} | {mode} ===\n")
@@ -101,13 +155,13 @@ def main():
                 model=model,
                 questions=questions,
                 mode=mode,
-                retriever=None  # plug in next step
+                retriever=None  # plug in RAG later
             )
 
             all_results.extend(results)
 
             fname = OUTPUT_DIR / (
-                f"v2_{model.replace(':', '_')}_{mode}_"
+                f"v2_1_{model.replace(':', '_')}_{mode}_"
                 f"{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
             )
 
@@ -115,14 +169,13 @@ def main():
             print(f"Saved {fname}")
 
     combined = OUTPUT_DIR / (
-        f"v2_combined_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
+        f"v2_1_combined_{datetime.now().strftime('%Y%m%d_%H%M')}.csv"
     )
 
     write_csv(all_results, combined)
 
-    print(f"\nDone. Combined: {combined}")
+    print(f"\nDone. Combined results: {combined}")
 
 
 if __name__ == "__main__":
     main()
-    
