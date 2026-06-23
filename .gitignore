@@ -25,4 +25,4 @@ build/
 *.swp
 
 # Cloudflare credentials (if any end up in project dir)
-*.cloudflared/
+*.cloudflared/chroma_db/
