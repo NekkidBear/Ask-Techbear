@@ -26,3 +26,5 @@ build/
 
 # Cloudflare credentials (if any end up in project dir)
 *.cloudflared/chroma_db/
+
+./backend/venv/lib/python3.12/site-packages/pygments/lexers/codeql.py

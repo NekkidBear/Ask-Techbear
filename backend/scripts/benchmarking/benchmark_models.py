@@ -18,7 +18,7 @@ import requests
 
 from backend.scripts.benchmarking.data_loader import load_questions
 from backend.scripts.benchmarking.pipeline import run_pipeline
-from backend.scripts.benchmarking.character_loader import load_character
+from backend.scripts.character_loader import load_character_prompt
 from backend.scripts.benchmarking.analyze_benchmark_results import run_analysis
 
 
@@ -39,6 +39,7 @@ MODES = [
 # =========================================================
 
 def list_ollama_models(host: str) -> list[str]:
+    """Query local Ollama instance and return all available model names."""
     url = f"http://{host}:11434/api/tags"
     r = requests.get(url, timeout=10)
     r.raise_for_status()
@@ -48,6 +49,7 @@ def list_ollama_models(host: str) -> list[str]:
 
 
 def filter_models(models: list[str]) -> list[str]:
+    """Exclude embedding models from the benchmark run."""
     return [m for m in models if "embed" not in m.lower()]
 
 
@@ -57,7 +59,7 @@ def filter_models(models: list[str]) -> list[str]:
 
 def build_prompt_builder(character_text: str, mode: str):
     """
-    Returns a function(question) -> prompt
+    Returns a function(question) -> prompt.
 
     This isolates ALL persona injection to one place.
     """
@@ -71,10 +73,16 @@ def build_prompt_builder(character_text: str, mode: str):
             return f"{character_text}\n\nQUESTION:\n{question}"
 
         if mode == "rag_facts":
-            return f"{character_text}\n\nFACTS CONTEXT:\n(placeholder)\n\nQUESTION:\n{question}"
+            return (
+                f"{character_text}\n\nFACTS CONTEXT:\n(placeholder)"
+                f"\n\nQUESTION:\n{question}"
+            )
 
         if mode == "rag_full":
-            return f"{character_text}\n\nFACTS CONTEXT:\n(placeholder)\n\nVOICE CONTEXT:\n(placeholder)\n\nQUESTION:\n{question}"
+            return (
+                f"{character_text}\n\nFACTS CONTEXT:\n(placeholder)"
+                f"\n\nVOICE CONTEXT:\n(placeholder)\n\nQUESTION:\n{question}"
+            )
 
         raise ValueError(f"Unknown mode: {mode}")
 
@@ -85,7 +93,8 @@ def build_prompt_builder(character_text: str, mode: str):
 # BENCHMARK EXECUTION
 # =========================================================
 
-def run_benchmark(host, model, questions, prompt_builder):
+def run_benchmark(host, model, mode, questions, prompt_builder):
+    """Run all questions through the pipeline for a given model and mode."""
     results = []
 
     for i, item in enumerate(questions, 1):
@@ -103,6 +112,7 @@ def run_benchmark(host, model, questions, prompt_builder):
             "attendee_name": item["attendee_name"],
             "question": item["question"],
             "model": model,
+            "mode": mode,
             "response": result["response"],
             "latency_s": result["total_time_s"],
             "tokens": result["tokens_generated"],
@@ -112,6 +122,7 @@ def run_benchmark(host, model, questions, prompt_builder):
 
 
 def write_csv(results, path):
+    """Write a list of result dicts to a CSV file."""
     if not results:
         return
 
@@ -126,10 +137,10 @@ def write_csv(results, path):
 # =========================================================
 
 def main():
+    """Entry point for TechBear benchmark orchestration."""
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--host", default="localhost")
-
     parser.add_argument("--models", nargs="+", default=None)
     parser.add_argument("--modes", nargs="+", default=MODES)
     parser.add_argument("--limit", type=int, default=None)
@@ -141,7 +152,7 @@ def main():
     questions = load_questions(limit=args.limit)
     print(f"Loaded {len(questions)} questions\n")
 
-    character_text = load_character()
+    character_text = load_character_prompt()
 
     # Discover models
     if args.models:
@@ -168,6 +179,7 @@ def main():
             results = run_benchmark(
                 host=args.host,
                 model=model,
+                mode=mode,
                 questions=questions,
                 prompt_builder=prompt_builder,
             )
@@ -187,11 +199,10 @@ def main():
     )
 
     write_csv(all_results, combined)
-
     print(f"\nCSV Complete: {combined}")
 
     # =====================================================
-    # ANALYSIS HOOK (NEW)
+    # ANALYSIS HOOK
     # =====================================================
 
     print("\nRunning analysis + charts...\n")

@@ -4,10 +4,10 @@ Post-processing + visualization for TechBear benchmark results.
 
 import pandas as pd
 import matplotlib.pyplot as plt
-from pathlib import Path
 
 
 def load_results(csv_path: str) -> pd.DataFrame:
+    """Load benchmark CSV into a DataFrame."""
     return pd.read_csv(csv_path)
 
 
@@ -15,7 +15,8 @@ def load_results(csv_path: str) -> pd.DataFrame:
 # Basic aggregations
 # ---------------------------------------------------------
 
-def summarize(df: pd.DataFrame):
+def summarize(df: pd.DataFrame) -> pd.DataFrame:
+    """Aggregate latency, tokens, and response count by model and mode."""
     return df.groupby(["model", "mode"]).agg(
         avg_latency=("latency_s", "mean"),
         avg_tokens=("tokens", "mean"),
@@ -27,7 +28,8 @@ def summarize(df: pd.DataFrame):
 # Visualization 1: Latency comparison
 # ---------------------------------------------------------
 
-def plot_latency(summary_df: pd.DataFrame):
+def plot_latency(summary_df: pd.DataFrame) -> None:
+    """Bar chart of average latency by model and mode."""
     pivot = summary_df.pivot(
         index="model", columns="mode", values="avg_latency")
 
@@ -42,7 +44,8 @@ def plot_latency(summary_df: pd.DataFrame):
 # Visualization 2: Token usage
 # ---------------------------------------------------------
 
-def plot_tokens(summary_df: pd.DataFrame):
+def plot_tokens(summary_df: pd.DataFrame) -> None:
+    """Bar chart of average token usage by model and mode."""
     pivot = summary_df.pivot(
         index="model", columns="mode", values="avg_tokens")
 
@@ -51,6 +54,19 @@ def plot_tokens(summary_df: pd.DataFrame):
     plt.ylabel("Tokens")
     plt.tight_layout()
     plt.show()
+
+
+# ---------------------------------------------------------
+# Programmatic entry point (called from benchmark_models.py)
+# ---------------------------------------------------------
+
+def run_analysis(csv_path: str) -> None:
+    """Load results from csv_path, print summary, and render charts."""
+    results_df = load_results(csv_path)
+    summary = summarize(results_df)
+    print(summary)
+    plot_latency(summary)
+    plot_tokens(summary)
 
 
 # ---------------------------------------------------------
@@ -65,8 +81,8 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    df = load_results(args.file)
-    summary = summarize(df)
+    results_df = load_results(args.file)
+    summary = summarize(results_df)
 
     print(summary)
 
