@@ -104,7 +104,8 @@ def build_prompt_builder(character_text: str, mode: str):
 # BENCHMARK EXECUTION
 # =========================================================
 
-def run_benchmark(host: str, model: str, mode: str, questions: list, prompt_builder) -> list:
+def run_benchmark(host: str, model: str, mode: str,
+                  questions: list, prompt_builder) -> list:
     """Run all questions through the pipeline for a given model and mode."""
     results = []
 
