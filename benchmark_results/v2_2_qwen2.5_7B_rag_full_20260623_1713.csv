@@ -1,0 +1,126 @@
+id,attendee_name,question,model,mode,response,latency_s,tokens
+1,Clueless in Cincinnati,"I received a lovely anonymous gift today. Someone threw an envelope labeled ""For Elizabeth, or Vera, or whatever you call yourself these days"" through my open window. Inside was a USB thumb drive. I have no idea who this person is or what they want me to do with it. I am curious as hell to find out what's on it though — but you've trained your technocub well, sensei. I thought I'd ask you first.",qwen2.5:7B,rag_full,"**Honey, grab those stress snacks and let’s dive into this!**
+
+Dear TechnoCubs,
+
+You’ve got a USB drive floating in the mystery of life—literally through your open window! Let's break this down step by step.
+
+### **Step 1: Don’t Panic (Or Do)**
+
+First things first, don't plug it into any device until you’re ready. This is where our sensei training comes in handy. You’ve got a curious tech expert on standby to help you through this digital mystery.
+
+### **Step 2: Create a Safe Zone**
+
+Set up a separate machine just for this USB drive—preferably one that’s not connected to the internet. Use an old, trusted laptop or desktop that isn’t part of your main network. This way, if something bad happens, it won’t spread like wildfire through your system.
+
+### **Step 3: Scan It**
+
+Use a reputable antivirus software to scan the USB drive before plugging it in. Think of it as running a thorough check with a powerful magnifying glass—just in case there’s any dust or debris you can’t see!
+
+### **Step 4: Curiosity Piqued? Go Ahead, But Wisely!**
+
+Once everything looks clean, go ahead and explore the contents. Look for any files that might give clues about who sent it—or what they want from you. Maybe it's a heartfelt message, or perhaps some secret digital treasure?
+
+### **Step 5: Document Everything**
+
+Keep detailed notes on your findings. If someone took the time to gift this USB drive to you, there’s likely a reason behind it. Jot down any files, messages, or anything that seems out of place.
+
+### **Step 6: Contact the Senders (Or Not)**
+
+If you find something interesting and want to know more about who sent it, consider reaching out through non-digital means first. Maybe write a note back and drop it in your neighbor’s mailbox? Or send them an email asking if they left anything for you?
+
+### **The Silver Lining**
+
+This mystery might turn into the best tech story of the week. Imagine finding some old photos, or even a hidden message with coordinates to a secret hideout! It could be quite the adventure.
+
+### **What to Remember**
+
+Always stay vigilant and cautious when dealing with unknown digital gifts. Our technocub training is all about keeping you safe while still letting your curiosity shine through!
+
+So, go ahead and open that USB drive—just make sure it’s in a safe environment first! You might just uncover something amazing.
+
+Techbear Out!",29.016,532
+4,Clueless in Cincinnati,"I received a lovely anonymous gift today. Someone threw an envelope labeled ""For Elizabeth, or Vera, or whatever you call yourself these days"" through my open window. Inside was a USB thumb drive. I have no idea who this person is or what they want me to do with it. I am curious as hell to find out what's on it though — but you've trained your technocub well, Sensei. I thought I'd ask you first.",qwen2.5:7B,rag_full,"**Elizabeth, or Vera, or Whatever You Call Yourself These Days**
+
+Honey, curiosity can be a double-edged sword, but in this case, let’s not stick our tongue right into that enchilada. First things first: **Isolate the USB drive!** No peeking until you’re sure it’s safe.
+
+**Step 1: Safely Isolate**
+- Unplug your computer from the power source.
+- Connect the USB drive to a spare, unused computer or a dedicated “safe” machine that doesn’t contain any important data. This minimizes the risk if something goes awry.
+
+**Step 2: Scan for Malware**
+- Use a reputable antivirus software to scan the drive. Free online tools like VirusTotal can help too.
+- Run a full system check on the computer you’re using, just in case it’s already infected.
+
+**Step 3: Inspect the Files**
+- Once you confirm the USB is clean, use an anti-spyware tool or simply open files one by one. Look for any suspicious documents or executables (files with extensions like `.exe`, `.dll`, etc.).
+
+**Step 4: Be Prepared**
+- If you find something fishy, don’t hesitate to report it to local authorities.
+- Keep a close eye on your computer and accounts for any unusual activity in the next few days.
+
+Remember, tech can be both a blessing and a curse. If this is too much, give me a shout—I’m here to help demystify anything that comes your way!
+
+**The Silver Lining?**
+If it’s not malicious, imagine what secrets or treasures might be inside! Maybe someone left you a heartfelt message, or maybe even some of Vera’s famous recipes.
+
+**TechBear Out!**",23.756,360
+5,Bob,My fucking laptop crashes every time I open more than 3 tabs. Can you tell me why it does this shite?,qwen2.5:7B,rag_full,"""Honey, when someone says 'fucking laptop,' it's like the cat walked across my keyboard! Let’s take a deep breath and get to the bottom of this.
+
+First off, opening multiple tabs can overload your browser’s memory, just like trying to fit too many things into a backpack. But usually, a modern browser handles 10-20 tabs easily. So, what might be going on here?
+
+Are you running any old or incompatible add-ons? Think of them as outdated tech gadgets that haven’t seen an upgrade in years— they slow down your system like a turtle with a sprained leg.
+
+Is your laptop’s RAM low? It's like trying to cook a big meal without enough ingredients. Time for a memory check!
+
+Could it be the browser itself? Sometimes, updates are necessary just like changing the oil in your car. Make sure you’re running the latest version.
+
+And don’t forget about those vents! Dust and heat can really mess with your laptop’s performance, like trying to work under a blanket in July.
+
+Now, let's get specific:
+1. Check for add-ons and remove any old ones.
+2. Upgrade RAM if needed—think of it as adding more ingredients to your cooking.
+3. Update your browser.
+4. Clean out those vents with a can of compressed air.
+
+But hey, if you're feeling overwhelmed, bring her in for a professional cleaning. It’s like giving your laptop a full-body spa day!
+
+Remember, every tech issue is just another opportunity to make things better. Let's get that laptop running smooth as butter again!""",22.466,322
+6,Bob,My fucking laptop crashes every time I open more than 3 tabs. Can you tell me why it does this shite?,qwen2.5:7B,rag_full,"""Ah, precious... when you say 'fucking laptop crashes,' I can't help but think of those moments in a meeting when someone starts talking about spreadsheets and suddenly your brain just goes blank! But seriously, let's get to the bottom of this.
+
+Opening more than 3 tabs can overload your browser, darling. It’s like trying to hold too many balloons: eventually, one (or all) will drop. Your laptop is probably running other applications in the background, which eats up resources and memory. That’s why it crashes—there's just not enough room for all those tabs.
+
+Now, before you go all snarky on me, let's address this like the smart customer you can be. Here are a few steps:
+
+1. **Close unnecessary programs**: Make sure you're not running any background applications that might hog resources.
+2. **Update your browser and OS**: Sometimes, crashes happen because of outdated software. Keep everything current to avoid these issues.
+3. **Clean up startup programs**: Go to Task Manager (Ctrl + Shift + Esc) and see what's starting automatically. Disable anything you don't need right away.
+
+And if all else fails? A professional clean might be in order! Dust bunnies love to settle inside your laptop, making everything slower and more prone to crashes.
+
+But hey, at least now you know why it happens. And next time, maybe try opening just two tabs instead of three?""
+
+[Voice 4]
+on? Super Quick Version: ""I Only Have 5 Minutes!"" Managing Multiple Computers Keep Your Browser Running Great: Simple Maintenance Schedule When Your Browser Needs More Help Why This Matters: Clean Browser = Better Life Take Action Today! About the Team About Techbear About Jason",23.283,352
+7,Carol,My shitty ex-boyfriend put a password on my laptop and now I can't use it! Can you help?,qwen2.5:7B,rag_full,"Oh sugar! Come here for a big TechBear hug! 🤗
+
+First things first, precious—let’s get that laptop situation sorted. Now, your ex might have put a password on the laptop to keep you out or maybe just to prove a point (that’s so 2010s, honey). But don’t worry; we can handle this like true professionals.
+
+### Step 1: Is He Still Around?
+If he has physical access to the laptop, it might be easier to get him to remove the password. Sometimes, love and communication work wonders—even if it’s ex-love and ex-communication. But if that’s not an option, we’ll need to move on.
+
+### Step 2: Try Basic Password Removal
+Most laptops have a “Forgot Your Password?” option in the login screen. It might ask you for your recovery email or phone number (if you set one up). If you still have access to those details, you can reset it that way.
+
+### Step 3: Use a Recovery Disk
+If you created a recovery disk when setting up the laptop, insert it now. This should give you a chance to unlock the system without your ex’s password. The steps vary by brand, but typically it involves booting from the recovery disk and following on-screen instructions.
+
+### Step 4: Professional Help
+If all else fails, we can call in the big guns! There are data recovery experts who specialize in removing passwords from laptops. But honey, if you’re worried about your personal information being compromised, make sure to take these steps:
+
+- **Secure Your Files:** Before anyone touches it, try to back up any important files to an external drive or cloud storage.
+- **Change Passwords:** Once the laptop is unlocked, update all your passwords—especially for banking and email.
+
+And remember, sugar, if this situation feels like too much to handle, don’t hesitate to reach out for professional help. Tech isn’t just about fixing computers; it’s also about keeping you safe.
+
+Now, let’s make sure we’re not putting ourselves through this again in the future. A good password manager can keep all your passwords organized and secure. And two-factor authentication? It’s like having a bouncer at your door. TechBear is here for you every step of the way!",26.988,472

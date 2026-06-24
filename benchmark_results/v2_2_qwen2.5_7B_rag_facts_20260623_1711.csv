@@ -1,0 +1,104 @@
+id,attendee_name,question,model,mode,response,latency_s,tokens
+1,Clueless in Cincinnati,"I received a lovely anonymous gift today. Someone threw an envelope labeled ""For Elizabeth, or Vera, or whatever you call yourself these days"" through my open window. Inside was a USB thumb drive. I have no idea who this person is or what they want me to do with it. I am curious as hell to find out what's on it though — but you've trained your technocub well, sensei. I thought I'd ask you first.",qwen2.5:7B,rag_facts,"Oh, Elizabeth (or Vera, if that’s how you roll these days), that’s a tricky one! You’ve got curiosity simmering at its peak, ready to boil over into tech trouble. Let me give you the once-over before you dive in.
+
+First things first: Isolate yourself from the rest of your network. Disconnect any internet connections and shut down any unnecessary devices. This is your digital safe room now—no one can come in or go out until we figure this out together.
+
+Next, find a computer that isn’t connected to the internet. Use an old, secure machine if you have one hidden away. This will help contain any potential maliciousness should something misbehave.
+
+Now, right-click on the USB drive and choose ""Properties."" Check under the “Details” tab for any file information—this can sometimes give hints about where it came from or when it was created.
+
+If all looks kosher (and remember, 'knightly' means suspicious), open a file explorer window to see what’s inside. Go slowly—double-clicking something could be like opening a digital Pandora's box.
+
+But here’s the real tech ninja move: Use your password manager and a virtual machine (VM) to check out the files. This way, even if malware tries to run, it won’t touch your main system. Think of it as using a shielded katana to cut through paper.
+
+And what about Vera? Well, you might just find that her name is written in the file metadata. Or maybe she left a clue in one of those mysterious filenames. It’s all part of the fun, right?
+
+If nothing else, let this experience be your tech lesson for today: Always keep your guard up, especially when curiosity is high and the envelope is anonymous. Stay safe out there, Elizabeth!",23.816,367
+4,Clueless in Cincinnati,"I received a lovely anonymous gift today. Someone threw an envelope labeled ""For Elizabeth, or Vera, or whatever you call yourself these days"" through my open window. Inside was a USB thumb drive. I have no idea who this person is or what they want me to do with it. I am curious as hell to find out what's on it though — but you've trained your technocub well, Sensei. I thought I'd ask you first.",qwen2.5:7B,rag_facts,"Darling Vera (or Elizabeth),
+
+Oh honey, that’s a thrilling mystery wrapped in a USB! Let me be your tech bear guide through this digital treasure hunt.
+
+### Step 1: **Isolate the Situation**
+First things first, don’t plug it into any working computer just yet. Set up a separate, secure device for this. You might want to use an old laptop or a computer that’s not connected to the internet at all. This way, if something goes sideways, you’ve contained the threat.
+
+### Step 2: **Scan with Antivirus**
+Before doing anything else, scan it with reliable antivirus software. There are free options like Malwarebytes or Avast. If your device doesn’t have one installed, download and run a full system check to make sure this USB isn’t carrying any bad juju.
+
+### Step 3: **Use an Isolated Environment**
+Once you’re clear of immediate threats, pop the USB into your isolated machine. Open it in a safe, non-networked environment—this could be a virtual machine (VM) on another computer. VMs are like digital sandboxes that can contain potential threats without infecting your main system.
+
+### Step 4: **Explore with Caution**
+Now, let’s see what’s inside! Use a file explorer to browse the contents of the USB. Look for any strange files or folders. Be wary of macros (those fancy little programs) which could be lurking in documents like Word or Excel files.
+
+### Step 5: **Backup and Research**
+If you find anything suspicious, don’t delete it right away. Copy the files to a safe location on your isolated device, then do some research. Try searching for file names online; sometimes malware has specific filenames that can help identify its nature.
+
+### Step 6: **Consider Professional Help**
+If you’re still unsure or if something looks fishy, don’t hesitate to reach out to IT professionals or cybersecurity experts. They have the tools and expertise to properly analyze and neutralize potential threats.
+
+### Final Thought
+Remember, tech should be fun and not scary. But when in doubt, take a step back, isolate, scan, and seek help if needed. You’re doing great, technocub!
+
+Hugs from Techbear,
+The Bear",26.791,462
+5,Bob,My fucking laptop crashes every time I open more than 3 tabs. Can you tell me why it does this shite?,qwen2.5:7B,rag_facts,"Ah, precious one, the tab apocalypse has struck again! Allow Auntie TechBear to help you unravel this mystery.
+
+First off, your poor laptop isn’t to blame—your browser is just doing its best with what you’re asking of it. Opening more than 3 tabs means you’ve got a case of the Tab Apocalypse. Each tab is like a little window into different sites, and they all need their own resources—like memory and processing power—to run smoothly.
+
+Now, if your laptop starts crashing when you open more tabs, here are a few reasons why:
+
+1. **Limited RAM**: Your laptop might not have enough Random Access Memory (RAM) to handle the load of multiple tabs. Each tab can consume a fair amount of resources, so if you exceed its capacity, it’s like trying to fit too many people in a car—someone is going to get left out!
+
+2. **Outdated Browser**: Sometimes, your browser just isn’t optimized for handling as many tabs as you’re opening. Updating to the latest version can help.
+
+3. **Extension Overload**: Some browser extensions can hog resources and slow things down. Check if any of those are eating up too much memory or CPU power.
+
+4. **Background Apps**: Even when minimized, apps in your system tray or background can use up valuable resources. Close some unnecessary ones to free up more RAM for tabs.
+
+To fix this, consider these steps:
+
+- **Close Unnecessary Tabs**: Only keep the most important sites open.
+- **Upgrade Your RAM**: If you’re still running low on memory, maybe it’s time to upgrade your laptop’s RAM.
+- **Update Your Browser**: Make sure everything is up-to-date for better performance.
+- **Disable Extensions**: Temporarily disable some extensions and see if that helps.
+
+Remember, each tab is a small resource eater. Manage them wisely, and your laptop will thank you!",24.358,384
+6,Bob,My fucking laptop crashes every time I open more than 3 tabs. Can you tell me why it does this shite?,qwen2.5:7B,rag_facts,"Oh, precious, that frustration is palpable! Let's get to the bottom of this.
+
+First off, your laptop might be overheating because those tabs are like little digital fires in your CPU. When you open too many, it’s overloading your system and causing it to shut down as a safety measure—think of it like your laptop saying, “Whoa, slow down!” 
+
+Secondly, those tabs could be eating up all your RAM. Imagine your computer as a car with a limited fuel tank. Each tab is a passenger riding along. Open too many, and you run out of space to drive smoothly.
+
+Third, your operating system might not be optimized for multitasking. It’s like trying to cook a gourmet meal using only one pot—it just doesn’t work well!
+
+Fourth, there could be background apps or processes running that are hogging resources. Think of them as guests at a dinner party—some people need more attention than others.
+
+Now, here’s what you can do:
+
+1. **Close unnecessary tabs**: Limit yourself to 3 or so at a time and close any you don’t need.
+2. **Update your OS and browser**: Make sure they’re up-to-date for better performance.
+3. **Manage background apps**: Use task manager tools to see which ones are using the most resources.
+4. **Clean out dust** (gently, if you can): Overheating components are like a car with no coolant—it’s going to break down.
+
+If none of these help, it might be time for a professional clean or even an upgrade. But before that, let your tech breathe and see how much better things get!
+
+Feel free to reach out if you need more specific guidance!",23.274,349
+7,Carol,My shitty ex-boyfriend put a password on my laptop and now I can't use it! Can you help?,qwen2.5:7B,rag_facts,"Oh Sugar! Oh, precious! Darling, I'm so sorry this has happened to you. First things first—let's get some clarity. Are we talking about your personal laptop or the business one?
+
+If it’s your personal laptop, here’s what TechBear suggests:
+
+1. **Change the Password Immediately:** Try resetting the password from the account settings. Sometimes, tech can be a bit stubborn, but we’ll figure this out.
+
+2. **Reset Account Access:** If that doesn’t work, you might need to contact the user support of the service (if it’s cloud-based) or your internet provider for help.
+
+3. **Professional Help:** If all else fails, consider taking it to a professional technician. Sometimes, personal tech issues are best handled by those who know their way around hardware and software alike.
+
+If it's your business laptop, you’ll need to follow more stringent steps:
+
+1. **Report the Issue:** Inform your IT support team immediately. They have tools and processes in place to resolve this quickly.
+   
+2. **Change Business Passwords:** Ensure all related business accounts are secured with strong, unique passwords. TechBear’s emergency method can help here.
+
+3. **Legal Steps:** If there's suspicion of malicious intent, consider reporting it to the authorities or a legal advisor.
+
+Whatever the case, darling, know that this too shall pass. And remember—TechBear’s always got your back!",15.953,288

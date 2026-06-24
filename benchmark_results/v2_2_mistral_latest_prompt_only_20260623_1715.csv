@@ -1,0 +1,53 @@
+id,attendee_name,question,model,mode,response,latency_s,tokens
+1,Clueless in Cincinnati,"I received a lovely anonymous gift today. Someone threw an envelope labeled ""For Elizabeth, or Vera, or whatever you call yourself these days"" through my open window. Inside was a USB thumb drive. I have no idea who this person is or what they want me to do with it. I am curious as hell to find out what's on it though — but you've trained your technocub well, sensei. I thought I'd ask you first.",mistral:latest,prompt_only," ""Oh honey, there's a cyber bear trap waiting for you in that drive! Picture it—a digital stranger offering candy from an unmarked van, right in your own home.
+
+First things first: Don't plug that thing into any device! Keep it sealed until you can bring it to a professional who knows how to safely scan it for malware.
+
+Now, if it turns out to be harmless and you do want to see what's on it, there are ways to do so securely. But remember, curiosity killed the cat—and plugging that drive in could leave your tech open to all sorts of digital chaos.
+
+Remember, my technocubbies: Stay safe out there, and never forget that a good rule of thumb is to always verify before you plug!
+
+Asking for a friend, of course.""",13.257,183
+4,Clueless in Cincinnati,"I received a lovely anonymous gift today. Someone threw an envelope labeled ""For Elizabeth, or Vera, or whatever you call yourself these days"" through my open window. Inside was a USB thumb drive. I have no idea who this person is or what they want me to do with it. I am curious as hell to find out what's on it though — but you've trained your technocub well, Sensei. I thought I'd ask you first.",mistral:latest,prompt_only," ""Ah, sweetie, that USB drive is as dangerous as a bear without its hibernation sleep! You've got the instincts of a savvy technocub already.
+
+Now, let me spell it out: NEVER plug that mysterious stick into your precious device! It could be a Trojan horse, ready to gallop right past your security and unleash chaos in your digital home.
+
+Instead, use a reliable flash drive reader or connect it to an old, non-critical computer to examine its contents carefully—if you must. And if you're still curious about who sent it, send a note back saying 'Thanks for the USB, whoever you are! My IT bear said I shouldn't plug it in.'
+
+Remember, honey: Your tech is screaming for attention, not mystery gifts! So keep that safety first mentality strong. And if you need any help with securing your digital life, just holler—I'm always here to help my technocubbies!""",6.78,218
+5,Bob,My fucking laptop crashes every time I open more than 3 tabs. Can you tell me why it does this shite?,mistral:latest,prompt_only," Darling, I'm an IT bear, not a tech sorcerer—I can't read your mind or witchcraft away your laptop troubles!
+
+But honey, I do have a solution for that digital bear trap of yours:
+
+Your poor laptop is CRYING OUT for some TLC. It's overheating every time you open too many tabs like a ravenous bearskin rug in a sauna.
+
+First order of business: invest in a decent cooling pad. You can get one for as low as $20-50, which is a BARGAIN compared to replacing a motherboard that's been slow-cooked because you were trying to save desk space!
+
+Next, clean out the dust bunnies that have formed entire civilizations in there! They're holding elections and building infrastructure. Run a can of compressed air through your laptop regularly, and consider vacuuming out the vents every few months.
+
+Now, if you're still struggling after these steps, my technocubbies, it might be time to upgrade your RAM or consider a newer model. But first things first—cool your laptop down before it melts like marshmallows on a campfire!",8.112,264
+6,Bob,My fucking laptop crashes every time I open more than 3 tabs. Can you tell me why it does this shite?,mistral:latest,prompt_only," ""Darling, I'm not sure whether to laugh or cry over your poor suffering technocub's laptop — but let's get right to the heart of the matter!
+
+Your computer's crashing like a toddler learning to walk in stilettos. Honey, those 3 tabs are more like an all-you-can-eat digital buffet that your poor machine can't handle. Picture it as if you were asked to juggle flaming swords and fireballs while doing a triple pirouette on a unicycle!
+
+Now, here comes the good news: Your technocub needs a memory upgrade, sweetheart! Adding more RAM will be like giving your laptop a digital detox, allowing it to handle all those tabs with grace.
+
+But remember, technology's not just about speed and sass; we need to treat our tech with love and care too. So keep it clean, keep it cool, and never forget that my technocubbies deserve the best.
+
+Call us, honey, we'll make sure you're surfing those digital waves without a hitch!""",7.565,249
+7,Carol,My shitty ex-boyfriend put a password on my laptop and now I can't use it! Can you help?,mistral:latest,prompt_only," ""Sweetheart, I'm not sure whether to laugh or cry — but that ain't no reason to call in the big guns! Now, let's get your laptop back to purring like a kitten.
+
+First off, don't fret: your ex-boyfriend can't lock you out forever. This situation calls for a little password reset magic. Here are two options — choose wisely.
+
+Option A: If you have access to the recovery key or account details, follow these steps:
+1. Restart your laptop and press F8 (or the appropriate key for your device).
+2. Select Troubleshoot > Advanced Options > Command Prompt > Administrator.
+3. Type: net user username password /add
+   Replace ""username"" with your old account name, and ""password"" with a new one you'll remember.
+4. Press Enter and watch the digital dust settle. If all goes well, you're back in business!
+
+Option B: If you don't have recovery keys or account details, it's time for some sneaky bypassing. Use a LiveCD or USB to boot into an alternate operating system, then reset your password from there. Remember: be careful with these methods, as they can potentially compromise the security of your laptop.
+
+Now, let's talk maintenance: Keep that precious device sparkling clean and running smooth with regular updates, antivirus checks, and backup strategies. My advice? Treat it like a diva — pampered, protected, and always ready for the spotlight!
+
+And hey, sweetheart, if you need more help than just a password reset, give us a call. We're here to keep your tech life running smoothly, without all the drama of past relationships.""",11.606,383

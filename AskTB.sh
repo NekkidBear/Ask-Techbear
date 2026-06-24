@@ -99,7 +99,7 @@ fi
 # Quick model presence check (won't block startup, just warns)
 if command -v ollama >/dev/null 2>&1; then
     MODELS=$(ollama list 2>/dev/null)
-    for m in "llama3.2" "llama3.2:1b"; do
+    for m in "llama3.1:8b" "nomic-embed-text"; do
         if ! echo "$MODELS" | grep -q "$m"; then
             warn "Model '$m' not found locally. Run: ollama pull $m"
         fi

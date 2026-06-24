@@ -6,10 +6,12 @@ Design principle:
 - NO character logic here
 - ONLY orchestration of inputs -> model -> output
 """
-
+# Standard library imports
 import time
-import requests
+from typing import Any
 
+# Third-party imports
+import requests
 
 OLLAMA_PORT = 11434
 
@@ -18,14 +20,14 @@ OLLAMA_PORT = 11434
 # CORE INFERENCE
 # =========================================================
 
-def ollama_generate(host: str, model: str, prompt: str) -> dict:
+def ollama_generate(host: str, model: str, prompt: str) -> dict[str, Any]:
     """
     Call Ollama /api/generate and return raw model output + metrics.
     """
 
     url = f"http://{host}:{OLLAMA_PORT}/api/generate"
 
-    payload = {
+    payload: dict[str, Any] = {
         "model": model,
         "prompt": prompt,
         "stream": False,
@@ -54,7 +56,7 @@ def run_pipeline(
     model: str,
     host: str,
     prompt_builder,
-) -> dict:
+) -> dict[str, Any]:
     """
     Fully decoupled pipeline:
     - prompt_builder is injected (critical design change)

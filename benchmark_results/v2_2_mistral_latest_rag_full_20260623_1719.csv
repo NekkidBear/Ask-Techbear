@@ -1,0 +1,74 @@
+id,attendee_name,question,model,mode,response,latency_s,tokens
+1,Clueless in Cincinnati,"I received a lovely anonymous gift today. Someone threw an envelope labeled ""For Elizabeth, or Vera, or whatever you call yourself these days"" through my open window. Inside was a USB thumb drive. I have no idea who this person is or what they want me to do with it. I am curious as hell to find out what's on it though — but you've trained your technocub well, sensei. I thought I'd ask you first.",mistral:latest,rag_full," Darling,
+
+You're in quite a conundrum there, aren't you? But fret not, for Techbear has your back. The USB drive you received could be anything from a harmless prank to a malicious Trojan horse. Here are my instructions on what to do:
+
+1. First things first, never plug any unverified device into your computer without scanning it first! You might as well invite a cybercriminal to move in with you.
+
+2. I recommend getting yourself an antivirus software if you don't already have one. Run a scan on the USB drive before connecting it to your computer. This will help protect your device from any malicious threats.
+
+3. If the scan comes back clean, then feel free to investigate the contents of the drive. Just remember to be cautious and not click on any suspicious links or downloads. And for goodness sake, don't open any files if you're unsure about their origin!
+
+4. If the scan reveals something suspicious, I would recommend taking it to a professional for further analysis. Better safe than sorry, darling!
+
+And there you have it, my dear technocub. Always remember to be cautious with unknown devices and never hesitate to ask Techbear when you're in doubt. Now go forth and conquer the digital world!
+
+With love and sparkles,
+TechBear",23.189,304
+4,Clueless in Cincinnati,"I received a lovely anonymous gift today. Someone threw an envelope labeled ""For Elizabeth, or Vera, or whatever you call yourself these days"" through my open window. Inside was a USB thumb drive. I have no idea who this person is or what they want me to do with it. I am curious as hell to find out what's on it though — but you've trained your technocub well, Sensei. I thought I'd ask you first.",mistral:latest,rag_full," Darling technocub,
+
+Oh, the tangled web we weave when first we practice cybersecurity! But fear not, for TechBear is here to guide you through this digital thicket. You received an anonymous gift—an ominous USB thumb drive, no less. I'd be lying if I said my heart doesn't race at the thought of what could be lurking within. However, curiosity can be a dangerous thing in this wild world of technology, so let us proceed with caution.
+
+First and foremost, never plug an unverified USB drive into your computer! You risk infection by malware or viruses that could wreak havoc on your system. Now, before you start to worry about missing out on some juicy secrets, consider this: if the sender truly wanted you to have its contents, they would have taken the time to ensure it was safe and virus-free.
+
+Instead, let us investigate further. First, isolate the drive from your computer network. Disconnect it from any systems and plug it into a standalone device or even an old computer you no longer use. This way, if there is malicious content, it will not spread to your main system.
+
+Next, perform a thorough scan of the drive with reliable antivirus software. If it's clean, then you may be in for quite the adventure! Just remember, TechBear always advises caution when opening emails or files from unknown sources—even if they come wrapped in an anonymous gift!
+
+So, technocub, heed my words: do not plug that USB drive into your computer without proper precautions. Investigate its contents on a separate device, and scan it thoroughly for any potential threats. After all, better safe than sorry when it comes to technology!
+
+With love, sparkles, and the TechBear's essential advice,
+
+TechBear",26.104,402
+5,Bob,My fucking laptop crashes every time I open more than 3 tabs. Can you tell me why it does this shite?,mistral:latest,rag_full," Darling, my apologies for the technical language, but let's first address your concern. It seems that your laptop is experiencing performance issues when you open multiple tabs due to a lack of system resources or overheating. Here are some steps to help diagnose and resolve the problem:
+
+1. Check if your laptop has sufficient RAM (memory). If it's running low, consider upgrading or adding more RAM to improve its performance.
+2. Clean out temporary files and cache that may be consuming valuable space on your hard drive. This can be done by using built-in utilities like Disk Cleanup in Windows or Optimize Storage in macOS.
+3. Monitor the temperature of your laptop while running resource-intensive tasks, such as opening many tabs. If it's overheating, ensure proper ventilation and consider using a cooling pad to keep it at optimal temperatures.
+4. Review your web browser settings and extensions, as they may be consuming excessive resources or causing conflicts that lead to crashes. Try disabling them one-by-one to determine which one might be the culprit.
+5. Update your operating system and web browser to the latest versions, as new releases often contain performance enhancements and security fixes that can help improve your laptop's stability.
+6. Lastly, consider running a diagnostic tool or malware scan to ensure that your system is not infected with viruses or malware that could be causing the crashes.
+
+By following these steps, you should be able to identify the root cause of the issue and improve your laptop's performance when opening multiple tabs. Happy computing!",24.252,347
+6,Bob,My fucking laptop crashes every time I open more than 3 tabs. Can you tell me why it does this shite?,mistral:latest,rag_full," Darling Precious, my sympathies for your computer woes! Let's diagnose the problem together so we can get your digital life back on track.
+
+Firstly, it seems that your laptop is crashing due to performance issues related to browser overload. The main culprit here is likely throttling, which occurs when your device slows itself down to prevent overheating. This happens because multiple tabs consume a significant amount of system resources, causing the laptop to heat up and eventually crash.
+
+To remedy this issue, there are several steps you can take:
+
+1. Clean those vents! A buildup of dust can block airflow and cause your computer to overheat.
+2. Close unnecessary tabs or use a tab management extension like OneTab to help manage multiple tabs more efficiently.
+3. Update your browser and any add-ons, as outdated software can cause performance issues and security risks.
+4. If you find that your browser still needs some extra help, consider implementing a simple maintenance schedule such as clearing cookies, cache, and temporary files regularly.
+5. Lastly, if you're using multiple computers or share your computer with others, ensure that each device has its own user account to keep settings and data separate and prevent conflicts.
+
+By taking these steps, you can help alleviate the performance issues you've been experiencing, allowing for a smoother digital life once again!",23.22,305
+7,Carol,My shitty ex-boyfriend put a password on my laptop and now I can't use it! Can you help?,mistral:latest,rag_full," Oh darling, I'm so sorry to hear about your ex giving you trouble even after the relationship ended. Let me help you regain access to your laptop. Here are the steps to reset the password:
+
+1. Restart your laptop and start it in Recovery Mode (the process may vary depending on your operating system, but usually you can do this by holding down certain keys during startup).
+2. Once in Recovery Mode, look for an option like ""Reset Password"" or ""User Accounts"".
+3. Follow the prompts to create a new password for your account.
+4. After setting a new password, exit Recovery Mode and try logging into your laptop with the new password.
+
+If you're using a Mac:
+- Restart your computer and immediately press Command+R to start up in Recovery Mode.
+- Choose ""Utilities"" from the menu bar, then select ""Reset Password.""
+- Follow the onscreen instructions to create a new password for your user account.
+
+If you're using Windows 10:
+- Restart your computer and press Shift+Restart when it starts up. This will start your PC in Advanced Startup.
+- Choose ""Troubleshoot"" > ""Advanced options"" > ""Command Prompt"".
+- Type the following command, then press Enter: `net user yourusername yournewpassword` (replace ""yourusername"" with your username and ""yournewpassword"" with a new password you want to set).
+- Close the Command Prompt and exit Advanced Startup.
+
+If you encounter any issues or need further assistance, don't hesitate to ask! I'm here for you, sweetheart.",24.802,363
