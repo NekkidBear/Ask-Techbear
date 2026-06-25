@@ -28,3 +28,6 @@ build/
 *.cloudflared/chroma_db/
 
 ./backend/venv/lib/python3.12/site-packages/pygments/lexers/codeql.py
+
+# ChromaDB vector store (generated, rebuilt via ingest_corpus.py)
+chroma_db/
