@@ -55,7 +55,21 @@ SERIES_PATTERNS = {
     "Thoughtful Thursday": r"thoughtful thursday",
     "Workflow Wednesday": r"workflow wednesday",
     "Ask TechBear": r"ask tech ?bear",
+    "Guide to the Multiverse": r"guide to the multiverse",
 }
+
+# Posts that are fiction/lore — excluded from facts retrieval, kept in voice.
+# Detected by title since some Multiverse posts have empty tags.
+FICTION_TITLE_PATTERNS = [
+    r"guide to the multiverse",
+    r"friday funday.*multiverse",
+]
+
+FICTION_TAG_MARKERS = [
+    "TechBearsGuideToTheMultiverse",
+    "GuideToTheMultiverse",
+    "MultiverseAdventures",
+]
 
 VOICE_MARKERS = [
     r"\btechnocub", r"\bsugar\b", r"\bhoney\b", r"\bdarling\b",
@@ -83,6 +97,21 @@ def detect_series(title: str) -> str:
         if re.search(pattern, title, re.IGNORECASE):
             return name
     return "standalone"
+
+
+def is_fiction_post(title: str, tags: str) -> bool:
+    """
+    Detect fiction/lore posts that should not be used as factual sources.
+    Checks title patterns first (reliable even when tags are empty),
+    then tag markers as a secondary signal.
+    """
+    for pattern in FICTION_TITLE_PATTERNS:
+        if re.search(pattern, title, re.IGNORECASE):
+            return True
+    for marker in FICTION_TAG_MARKERS:
+        if marker.lower() in tags.lower():
+            return True
+    return False
 
 
 def voice_score(text: str) -> int:
@@ -177,6 +206,8 @@ def load_corpus() -> list[dict]:
 
             row["clean_content"] = strip_html(row["Content"])
             row["series"] = detect_series(row["Title"])
+            row["is_fiction"] = is_fiction_post(
+                row["Title"], row.get("Tags", ""))
             posts.append(row)
 
     return posts
@@ -207,7 +238,7 @@ def init_collections(client, embed_fn, force: bool):
             try:
                 client.delete_collection(name)
                 print(f"  Deleted existing collection: {name}")
-            except Exception as e:
+            except (ValueError, RuntimeError) as e:
                 # Chroma raises runtime errors inconsistently across versions
                 # Safe to ignore "not found" cases during reset
                 print(f"  Delete skipped for {name}: {e}")
@@ -265,7 +296,7 @@ def ingest_collection(
     skipped = 0
 
     batch_ids, batch_docs, batch_metas = [], [], []
-    BATCH_SIZE = 50
+    batch_size = 50
 
     for post in posts:
         post_id = post["ID"]
@@ -295,11 +326,12 @@ def ingest_collection(
                 "voice_score": score,
                 "chunk_index": i,
                 "total_chunks": len(chunks),
+                "is_fiction": is_fiction_post(title, tags),
             })
 
             total += 1
 
-            if len(batch_ids) >= BATCH_SIZE:
+            if len(batch_ids) >= batch_size:
                 _flush_batch(collection, batch_ids,
                              batch_docs, batch_metas, label)
                 batch_ids, batch_docs, batch_metas = [], [], []
@@ -333,7 +365,8 @@ def _flush_batch(collection, ids, docs, metas, label: str) -> None:
 # Main orchestration
 # =============================================================
 
-def main():
+def main() -> None:
+    """Ingest the WordPress corpus into ChromaDB facts and voice collections."""
     parser = argparse.ArgumentParser()
     parser.add_argument("--force", action="store_true")
     args = parser.parse_args()
@@ -346,7 +379,13 @@ def main():
     print(f"ChromaDB at {CHROMA_PATH}")
 
     embed_fn = init_embedding_function()
-    facts_col, voice_col = init_collections(client, embed_fn, args.force)
+    result = init_collections(client, embed_fn, args.force)
+
+    if args.force:
+        # --force deleted collections and returned None; re-init clean
+        facts_col, voice_col = init_collections(client, embed_fn, force=False)
+    else:
+        facts_col, voice_col = result  # type: ignore[misc]
 
     if not args.force and already_populated(facts_col, voice_col):
         sys.exit(0)

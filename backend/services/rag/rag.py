@@ -1,8 +1,16 @@
-# backend/services/rag.py
+"""
+backend/services/rag/rag.py — ChromaDB retrieval for Ask TechBear
+Gymnarctos Studios LLC
+
+Dual-collection RAG:
+  techbear_facts — factual content, fiction posts excluded via metadata filter
+  techbear_voice — voice/style exemplars, all posts including Multiverse episodes
+"""
+
+from typing import Dict, List
 
 import chromadb
 import requests
-from typing import List, Dict, Any
 
 CHROMA_PATH = "./chroma_db"
 
@@ -28,34 +36,29 @@ voice_col = client.get_collection(VOICE_COLLECTION)
 # ============================================================
 
 def retrieve_facts(query: str, k: int = 6) -> List[Dict]:
+    """Retrieve factual chunks, excluding fiction/lore posts."""
     results = facts_col.query(
         query_texts=[query],
-        n_results=k
+        n_results=k,
+        where={"is_fiction": False},
     )
-
     return _pack(results)
 
 
 def retrieve_voice(query: str, k: int = 4) -> List[Dict]:
+    """Retrieve voice/style exemplar chunks including Multiverse episodes."""
     results = voice_col.query(
         query_texts=[query],
-        n_results=k
+        n_results=k,
     )
-
     return _pack(results)
 
 
 def _pack(results) -> List[Dict]:
+    """Pack ChromaDB query results into a list of text/meta dicts."""
     docs = results.get("documents", [[]])[0]
     metas = results.get("metadatas", [[]])[0]
-
-    packed = []
-    for doc, meta in zip(docs, metas):
-        packed.append({
-            "text": doc,
-            "meta": meta
-        })
-    return packed
+    return [{"text": doc, "meta": meta} for doc, meta in zip(docs, metas)]
 
 
 # ============================================================
@@ -63,10 +66,7 @@ def _pack(results) -> List[Dict]:
 # ============================================================
 
 def build_prompt(user_query: str, facts: List[Dict], voice: List[Dict]) -> List[Dict]:
-    """
-    Builds a structured chat prompt for Ollama.
-    """
-
+    """Build a structured chat prompt for Ollama from retrieved chunks."""
     fact_block = "\n\n".join(
         f"[SOURCE {i+1}]\n{f['text']}"
         for i, f in enumerate(facts)
@@ -87,16 +87,11 @@ def build_prompt(user_query: str, facts: List[Dict], voice: List[Dict]) -> List[
         "- Match tone and phrasing from VOICE EXAMPLES loosely, not literally.\n"
     )
 
-    user = f"""
-QUESTION:
-{user_query}
-
-FACTUAL SOURCES:
-{fact_block}
-
-VOICE EXAMPLES:
-{voice_block}
-"""
+    user = (
+        f"QUESTION:\n{user_query}\n\n"
+        f"FACTUAL SOURCES:\n{fact_block}\n\n"
+        f"VOICE EXAMPLES:\n{voice_block}\n"
+    )
 
     return [
         {"role": "system", "content": system},
@@ -109,20 +104,15 @@ VOICE EXAMPLES:
 # ============================================================
 
 def generate(user_query: str, model: str = DEFAULT_MODEL) -> str:
+    """Generate a TechBear response using RAG retrieval and Ollama."""
     facts = retrieve_facts(user_query)
     voice = retrieve_voice(user_query)
-
     messages = build_prompt(user_query, facts, voice)
 
     response = requests.post(
         OLLAMA_URL,
-        json={
-            "model": model,
-            "messages": messages,
-            "stream": False
-        },
-        timeout=120
+        json={"model": model, "messages": messages, "stream": False},
+        timeout=120,
     )
-
     response.raise_for_status()
     return response.json()["message"]["content"]

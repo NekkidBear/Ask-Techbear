@@ -12,6 +12,7 @@ Output: character artifact written into artifact["drafts"]["voice"].
 """
 
 import os
+import re
 from pathlib import Path
 
 import json
@@ -83,7 +84,11 @@ def _build_messages(
                 "Rewrite the factual draft above in TechBear's voice, following all character "
                 "and structural guidance. Remember: you may only rephrase, not add or remove "
                 "technical claims. Keep the response between 150 and 250 words. "
-                "Respond only with the TechBear response — no preamble, no labels."
+                "The draft may contain section markers ([ORIENT], [STAKES], [CONCEPT], "
+                "[ACTION], [TRANSFER]) — use these as structural guidance only. "
+                "Do NOT include the markers or any markdown headers in your response. "
+                "Respond only with the final TechBear response text — no labels, no markers, "
+                "no preamble."
             )
         }
     ]
@@ -146,6 +151,19 @@ def run(artifact: dict) -> dict:
             "error": str(exc),
         }
         return artifact
+
+    word_count = len(voice_draft.split())
+
+    # Safety net: strip any educational markers the model failed to remove.
+    # These should never appear in the final output but occasionally survive
+    # despite the prompt instruction.
+    voice_draft = re.sub(
+        r'\*?\*?\[(ORIENT|STAKES|CONCEPT|ACTION|TRANSFER|WARM CLOSE)\]\*?\*?',
+        '',
+        voice_draft,
+    ).strip()
+    # Re-collapse any double blank lines left by marker removal
+    voice_draft = re.sub(r'\n{3,}', '\n\n', voice_draft).strip()
 
     word_count = len(voice_draft.split())
 

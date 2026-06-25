@@ -19,6 +19,7 @@ Loop handling:
 
 import os
 
+from collections.abc import Callable
 from backend.services.pipeline import moderation
 from backend.services.pipeline import factual_pass
 from backend.services.pipeline import fact_critique
@@ -83,7 +84,10 @@ def _retrieve(artifact: dict) -> dict:
 # ORCHESTRATOR
 # =========================================================
 
-def run_pipeline(submission: dict) -> dict:
+def run_pipeline(
+    submission: dict,
+    on_stage: Callable[[str], None] | None = None,
+) -> dict:
     """
     Run a submission through the full async pipeline.
 
@@ -91,10 +95,16 @@ def run_pipeline(submission: dict) -> dict:
         submission: dict with keys:
             id, attendee_name, question, source, expected_scope,
             rolling_context (optional), conversation_depth (optional)
+        on_stage: optional callable(stage_name: str) called before each phase.
+            Used by the test harness for progress output. No-op in production.
 
     Returns:
         completed artifact dict ready for human review handoff
     """
+
+    def _notify(stage: str) -> None:
+        if on_stage is not None:
+            on_stage(stage)
 
     # Initialize pipeline state
     artifact = {
@@ -109,19 +119,23 @@ def run_pipeline(submission: dict) -> dict:
     }
 
     # ── Retrieval (pre-pipeline) ──────────────────────────
+    _notify("retrieval")
     artifact = _retrieve(artifact)
 
     # ── Phase 1: Moderation ───────────────────────────────
+    _notify("moderation")
     artifact = moderation.run(artifact)
     _gate("moderation", artifact)
 
     # ── Phase 2 + Loop: Factual pass ─────────────────────
     factual_loop_count = 0
     while True:
+        _notify("factual_pass" if factual_loop_count == 0 else f"factual_pass (retry {factual_loop_count})")
         artifact = factual_pass.run(artifact)
         _gate("factual_pass", artifact)
 
         # ── Phase 3: Fact + safety critique ───────────────
+        _notify("fact_critique")
         artifact = fact_critique.run(artifact)
 
         loop_requested = artifact.get("flags", {}).pop(
@@ -139,34 +153,42 @@ def run_pipeline(submission: dict) -> dict:
     artifact["loop_counts"]["factual"] = factual_loop_count
 
     # ── Phase 4: Educational structuring ─────────────────
+    _notify("educational_pass")
     artifact = educational_pass.run(artifact)
     _gate("educational_pass", artifact)
 
     # ── Phase 5: Voice rewrite ────────────────────────────
+    _notify("voice_pass")
     artifact = voice_pass.run(artifact)
     _gate("voice_pass", artifact)
 
     # ── Phase 6: Semantic fidelity check ──────────────────
+    _notify("semantic_check")
     artifact = semantic_check.run(artifact)
     _gate("semantic_check", artifact)
 
     # ── Phase 7: Character fidelity critique ──────────────
+    _notify("character_critique")
     artifact = character_critique.run(artifact)
     _gate("character_critique", artifact)
 
     # ── Phase 8: Editorial annotation ────────────────────
+    _notify("editorial_pass")
     artifact = editorial_pass.run(artifact)
     _gate("editorial_pass", artifact)
 
     # ── Phase 9: Editorial critique ───────────────────────
+    _notify("editorial_critique")
     artifact = editorial_critique.run(artifact)
     _gate("editorial_critique", artifact)
 
     # ── Phase 10: Educational effectiveness critique ──────
+    _notify("educational_critique")
     artifact = educational_critique.run(artifact)
     # Non-blocking — like editorial_critique, never halts pipeline
 
     # ── Phase 11: Human review handoff ───────────────────
+    _notify("handoff")
     artifact = handoff.run(artifact)
 
     return artifact
