@@ -25,4 +25,15 @@ build/
 *.swp
 
 # Cloudflare credentials (if any end up in project dir)
-*.cloudflared/
+*.cloudflared/chroma_db/
+
+./backend/venv/lib/python3.12/site-packages/pygments/lexers/codeql.py
+
+# ChromaDB vector store (generated, rebuilt via ingest_corpus.py)
+chroma_db/
+
+# Pipeline handoff output (generated artifacts)
+handoff_output/
+
+# Test run artifacts
+tests/test_output/

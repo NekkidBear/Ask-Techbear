@@ -1,0 +1,138 @@
+#!/bin/bash
+# .githooks/pre-commit-v2.5-pipeline
+# Enforces async pipeline architectural constraints.
+# Runs alongside pre-commit-v2.0-integrity via dispatcher.
+
+echo "🔍 Running TechBear v2.5 pipeline integrity checks..."
+
+FAIL=0
+
+# =================================================
+# 1. Pipeline phases must not import from each other
+#    (enforces stage isolation — all cross-phase
+#     communication goes through orchestrator only)
+# =================================================
+PHASES="moderation factual_pass fact_critique voice_pass \
+        semantic_check character_critique editorial_pass \
+        editorial_critique handoff"
+
+for phase in $PHASES; do
+    phase_file="backend/services/pipeline/${phase}.py"
+    if [[ ! -f "$phase_file" ]]; then
+        continue
+    fi
+    for other in $PHASES; do
+        if [[ "$phase" == "$other" ]]; then
+            continue
+        fi
+        if grep -q "from.*pipeline\.${other}\|import.*pipeline\.${other}" "$phase_file"; then
+            echo "❌ ${phase}.py imports directly from ${other}.py (use orchestrator)"
+            FAIL=1
+        fi
+    done
+done
+
+
+# =================================================
+# 2. Voice pass must not query facts collection
+#    (voice phase is rephrase-only)
+# =================================================
+if [[ -f "backend/services/pipeline/voice_pass.py" ]]; then
+    if grep -q "retrieve_facts\|techbear_facts\|get_facts" \
+       backend/services/pipeline/voice_pass.py; then
+        echo "❌ voice_pass.py querying facts collection (rephrase-only — no fact retrieval)"
+        FAIL=1
+    fi
+fi
+
+
+# =================================================
+# 3. Factual pass must not query voice collection
+#    (facts phase must stay pure)
+# =================================================
+if [[ -f "backend/services/pipeline/factual_pass.py" ]]; then
+    if grep -q "retrieve_voice\|techbear_voice\|get_voice" \
+       backend/services/pipeline/factual_pass.py; then
+        echo "❌ factual_pass.py querying voice collection (facts phase only)"
+        FAIL=1
+    fi
+fi
+
+
+# =================================================
+# 4. No pipeline phase may import character_full.md
+#    (character file refactor — use split files only)
+# =================================================
+if grep -rq "character_full\.md" backend/services/pipeline/ 2>/dev/null; then
+    echo "❌ pipeline phase importing character_full.md (use split character files)"
+    FAIL=1
+fi
+
+
+# =================================================
+# 5. Handoff must write scores to JSON
+#    (scores must be persisted, not just printed)
+# =================================================
+if [[ -f "backend/services/pipeline/handoff.py" ]]; then
+    if ! grep -q "json\.dump\|json\.dumps" backend/services/pipeline/handoff.py; then
+        echo "❌ handoff.py not writing JSON (all scores must be persisted)"
+        FAIL=1
+    fi
+fi
+
+
+# =================================================
+# 6. Critique modules must not make direct Ollama calls
+#    (must go through run_pipeline abstraction)
+# =================================================
+for critique in fact_critique character_critique editorial_critique; do
+    critique_file="backend/services/pipeline/${critique}.py"
+    if [[ ! -f "$critique_file" ]]; then
+        continue
+    fi
+    if grep -q "requests\.post.*api/generate\|requests\.post.*api/chat" "$critique_file"; then
+        echo "❌ ${critique}.py making direct Ollama calls (use run_pipeline)"
+        FAIL=1
+    fi
+done
+
+
+# =================================================
+# 7. Orchestrator must be the sole multi-phase importer
+#    (no file other than orchestrator imports 2+ phases)
+# =================================================
+for pyfile in $(find backend/services/pipeline/ -name "*.py" \
+               ! -name "orchestrator.py" ! -name "__init__.py" 2>/dev/null); do
+    import_count=0
+    for phase in $PHASES; do
+        if grep -q "from.*pipeline\.${phase}\|import.*pipeline\.${phase}" "$pyfile"; then
+            import_count=$((import_count + 1))
+        fi
+    done
+    if [[ $import_count -ge 2 ]]; then
+        echo "❌ $(basename $pyfile) imports multiple pipeline phases (only orchestrator.py may do this)"
+        FAIL=1
+    fi
+done
+
+
+# =================================================
+# 8. No zip files
+# =================================================
+if find . -name "*.zip" -not -path "./.git/*" | grep -q .; then
+    echo "❌ zip files detected in repo"
+    FAIL=1
+fi
+
+
+# =================================================
+# FINAL DECISION
+# =================================================
+if [ $FAIL -ne 0 ]; then
+    echo ""
+    echo "🚨 v2.5 pipeline integrity check FAILED — commit blocked"
+    exit 1
+fi
+
+echo "✅ v2.5 pipeline integrity check passed"
+exit 0

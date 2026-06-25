@@ -1,0 +1,80 @@
+#!/bin/bash
+
+echo "🔍 Running TechBear v2.0 integrity checks..."
+
+FAIL=0
+
+# =================================================
+# 1. Pipeline must NOT contain character/system prompt
+# =================================================
+if grep -R "TECHBEAR_SYSTEM" backend/scripts/benchmarking/pipeline.py >/dev/null; then
+  echo "❌ pipeline.py still contains TECHBEAR_SYSTEM (must be removed)"
+  FAIL=1
+fi
+
+
+# =================================================
+# 2. Character must be loaded externally (no hardcoding)
+# =================================================
+if ! grep -R "character_loader" backend/scripts >/dev/null; then
+  echo "❌ character_loader not found in scripts (character must be externalized)"
+  FAIL=1
+fi
+
+
+# =================================================
+# 3. Benchmark must NOT define system prompts
+# =================================================
+if grep -R "TECHBEAR_SYSTEM" backend/scripts/benchmarking >/dev/null; then
+  echo "❌ benchmarking contains duplicated system prompt"
+  FAIL=1
+fi
+
+
+# =================================================
+# 4. Pipeline must use injected prompt_builder pattern
+# =================================================
+if ! grep -R "prompt_builder" backend/scripts/benchmarking/pipeline.py >/dev/null; then
+  echo "❌ pipeline missing prompt_builder injection pattern"
+  FAIL=1
+fi
+
+
+# =================================================
+# 5. Block direct Ollama generation in benchmark layer
+#    (forces pipeline usage, prevents bypassing eval system)
+# =================================================
+if grep -R "requests.post.*api/generate" backend/scripts/benchmarking >/dev/null; then
+  echo "❌ benchmark bypasses pipeline (direct Ollama call detected)"
+  FAIL=1
+fi
+
+
+# =================================================
+# 6. Ensure no legacy zip artifacts are committed
+# =================================================
+if find . -name "*.zip" | grep -q .; then
+  echo "❌ zip files detected in repo"
+  FAIL=1
+fi
+
+# =================================================
+# 7. Benchmark results must include 'mode' column
+# =================================================
+if find benchmark_results -name "v2_*.csv" | head -1 | xargs -I{} head -1 {} | grep -qv "mode"; then
+  echo "❌ benchmark CSV missing 'mode' column (required for analysis)"
+  FAIL=1
+fi
+
+
+# =================================================
+# FINAL DECISION
+# =================================================
+if [ $FAIL -ne 0 ]; then
+  echo ""
+  echo "🚨 v2.0 integrity check FAILED — commit blocked"
+  exit 1
+fi
+
+echo "✅ v2.0 integrity check passed"
+exit 0

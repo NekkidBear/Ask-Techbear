@@ -1,0 +1,20 @@
+v2.5 Async Pipeline Baseline
+
+Completed:
+- Orchestrator
+- Multi-pass pipeline
+- Character separation
+- Fiction tagging
+- Benchmark harness
+- Pipeline scoring
+
+Known Issues:
+- Moderation false positives
+- Judge calibration
+- Lore retrieval
+- Voice repetition
+
+Deferred to v2.6:
+- Evaluation schema
+- Human review workflow
+- Reporting artifacts
