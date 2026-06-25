@@ -51,8 +51,8 @@ except ImportError:
     _PIPELINE_AVAILABLE = False
 
 # ── Paths ──────────────────────────────────────────────────────────────────
-ROOT = Path(__file__).resolve().parents[3]
-OUTPUT_DIR = ROOT / "test_output"
+ROOT = Path(__file__).resolve().parents[1]
+OUTPUT_DIR = ROOT / "tests" / "test_output"
 OLLAMA_URL = os.getenv(
     "OLLAMA_BASE_URL", "http://localhost:11434") + "/api/chat"
 SIMILARITY_MODEL = os.getenv("SIMILARITY_MODEL", "mistral:latest")
