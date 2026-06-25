@@ -1,0 +1,7 @@
+#!/bin/bash
+# TechBear pre-commit dispatcher
+# Runs all version-specific hooks in sequence
+
+bash .githooks/pre-commit-v2.0-integrity || exit 1
+bash .githooks/pre-commit-v2.5-pipeline || exit 1
+bash .githooks/pre-commit-v2.6-evaluation-reporting || exit 1
