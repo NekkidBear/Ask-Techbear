@@ -31,3 +31,9 @@ build/
 
 # ChromaDB vector store (generated, rebuilt via ingest_corpus.py)
 chroma_db/
+
+# Pipeline handoff output (generated artifacts)
+handoff_output/
+
+# Test run artifacts
+tests/test_output/
