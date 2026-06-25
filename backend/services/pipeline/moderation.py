@@ -74,9 +74,9 @@ def _load_blocklist() -> list[tuple[str, str]]:
             "DATABASE_URL",
             "postgresql://localhost/ask_techbear"
         )
+        # Strip the asyncpg driver prefix if present
         sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
 
-        assert _psycopg2 is not None  # narrowing: guaranteed by _PSYCOPG2_AVAILABLE guard
         conn = _psycopg2.connect(sync_url)
         cur = conn.cursor()
         cur.execute("SELECT term, category FROM blocklist;")
@@ -273,13 +273,16 @@ def run(artifact: dict) -> dict:
 
     decision = classification.get("decision", "pass")
     flag_reason = classification.get("flag_reason")
+    retrieval_mode = classification.get("retrieval_mode", "factual")
 
     result = {
         **classification,
+        "retrieval_mode": retrieval_mode,
         "blocklist_flagged": False,
         "blocklist_term": None,
     }
     artifact.setdefault("scores", {})["moderation"] = result
+    artifact["submission"]["retrieval_mode"] = retrieval_mode
 
     if flag_reason:
         artifact.setdefault("flags", {})["moderation"] = flag_reason

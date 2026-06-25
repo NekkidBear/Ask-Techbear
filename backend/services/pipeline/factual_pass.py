@@ -8,10 +8,10 @@ Constraint: technical accuracy over performance. No character voice.
 Output: plain-text fact artifact written into artifact["drafts"]["factual"].
 """
 
+import json
 import os
 from pathlib import Path
 
-import json
 import requests
 from requests.exceptions import RequestException
 
@@ -19,7 +19,8 @@ from requests.exceptions import RequestException
 # Configuration
 # =============================================================
 
-OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") + "/api/chat"
+OLLAMA_URL = os.getenv(
+    "OLLAMA_BASE_URL", "http://localhost:11434") + "/api/chat"
 FACTS_MODEL = os.getenv("FACTUAL_MODEL", "llama3.1:8b")
 
 # backend/services/pipeline/factual_pass.py
@@ -106,9 +107,21 @@ def run(artifact: dict) -> dict:
     """
     submission = artifact.get("submission", {})
     question = submission.get("question", "")
-    fact_chunks = artifact.get("retrieval", {}).get("facts", [])
+    retrieval = artifact.get("retrieval", {})
+    retrieval_mode = retrieval.get("retrieval_mode", "factual")
 
-    rag_context = _format_rag_context(fact_chunks)
+    # Use lore chunks for lore/tall_tale modes, fact chunks for factual/hybrid
+    if retrieval_mode in ("lore", "tall_tale"):
+        primary_chunks = retrieval.get("lore", [])
+        chunk_label = "lore"
+    elif retrieval_mode == "hybrid":
+        primary_chunks = retrieval.get("facts", []) + retrieval.get("lore", [])
+        chunk_label = "facts+lore"
+    else:
+        primary_chunks = retrieval.get("facts", [])
+        chunk_label = "facts"
+
+    rag_context = _format_rag_context(primary_chunks)
     messages = _build_messages(question, rag_context)
 
     try:
@@ -126,7 +139,9 @@ def run(artifact: dict) -> dict:
     artifact.setdefault("scores", {})["factual_pass"] = {
         "status": "complete",
         "model": FACTS_MODEL,
-        "rag_chunks_used": len(fact_chunks),
+        "retrieval_mode": retrieval_mode,
+        "chunk_source": chunk_label,
+        "rag_chunks_used": len(primary_chunks),
         "uncertain_flags": draft.count("[UNCERTAIN]"),
     }
 

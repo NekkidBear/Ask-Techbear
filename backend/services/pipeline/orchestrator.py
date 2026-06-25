@@ -19,7 +19,6 @@ Loop handling:
 
 import os
 
-from collections.abc import Callable
 from backend.services.pipeline import moderation
 from backend.services.pipeline import factual_pass
 from backend.services.pipeline import fact_critique
@@ -57,25 +56,27 @@ def _gate(phase_name: str, artifact: dict) -> None:
 
 def _retrieve(artifact: dict) -> dict:
     """
-    Dual-RAG retrieval: runs before the generation pipeline.
-    Populates artifact["retrieval"] with facts and voice chunks.
+    Routed RAG retrieval: runs before the generation pipeline.
+    Reads retrieval_mode from submission (set by moderation) to route
+    to the appropriate collection(s).
     Non-fatal: pipeline continues with empty context and a flag set.
     """
     question = artifact["submission"].get("question", "")
+    retrieval_mode = artifact["submission"].get("retrieval_mode", "factual")
 
     try:
-        facts = rag_service.retrieve_facts(question)
-        voice = rag_service.retrieve_voice(question)
+        chunks = rag_service.retrieve_for_mode(question, retrieval_mode)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         # ChromaDB raises varied exceptions (connection, dimension, missing collection)
         # Intentionally broad — pipeline degrades gracefully with empty retrieval
-        facts = []
-        voice = []
+        chunks = {"facts": [], "voice": [], "lore": []}
         artifact.setdefault("flags", {})["retrieval_error"] = str(exc)
 
     artifact["retrieval"] = {
-        "facts": facts,
-        "voice": voice,
+        "facts": chunks.get("facts", []),
+        "voice": chunks.get("voice", []),
+        "lore": chunks.get("lore", []),
+        "retrieval_mode": retrieval_mode,
     }
     return artifact
 
@@ -86,7 +87,7 @@ def _retrieve(artifact: dict) -> dict:
 
 def run_pipeline(
     submission: dict,
-    on_stage: Callable[[str], None] | None = None,
+    on_stage: callable = None,
 ) -> dict:
     """
     Run a submission through the full async pipeline.
@@ -130,7 +131,8 @@ def run_pipeline(
     # ── Phase 2 + Loop: Factual pass ─────────────────────
     factual_loop_count = 0
     while True:
-        _notify("factual_pass" if factual_loop_count == 0 else f"factual_pass (retry {factual_loop_count})")
+        _notify("factual_pass" if factual_loop_count ==
+                0 else f"factual_pass (retry {factual_loop_count})")
         artifact = factual_pass.run(artifact)
         _gate("factual_pass", artifact)
 

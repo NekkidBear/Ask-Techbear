@@ -2,15 +2,27 @@
 scripts/ingest_corpus.py — Corpus ingestion for Ask TechBear RAG
 Gymnarctos Studios LLC
 
-Ingests the WordPress blog post corpus into two ChromaDB collections:
+Ingests the WordPress blog post corpus into three ChromaDB collections:
 
-  techbear_facts  — larger chunks, preserves full explanations and
-                    step-by-step sequences.
+  techbear_facts  — factual technical content (is_fiction=False)
+                    Bio sections and tall tale content excluded.
 
-  techbear_voice  — smaller chunks, targets zingers, metaphors, and
-                    punchy passages.
+  techbear_voice  — voice/style exemplars, smaller chunks.
+                    Includes all posts including Multiverse episodes.
 
-Both collections use the same 71-post dataset (4 pre-pivot posts excluded).
+  techbear_lore   — TechBear canon and tall tale background.
+                    Sources: Multiverse episodes (lore_tier=canon)
+                             Bio section tall tale callbacks (lore_tier=tall_tale)
+
+Bio section detection:
+    Each article is split at its "About TechBear" bio section.
+    Body content → techbear_facts
+    Bio content → techbear_lore (if canonical tall tale phrases detected)
+                  discarded otherwise (contact/attribution only)
+
+Fiction detection:
+    Multiverse posts detected by title pattern and tags.
+    Excluded from techbear_facts, ingested into techbear_lore as canon.
 """
 
 import argparse
@@ -42,12 +54,14 @@ EXCLUDED_IDS = {725, 737, 1255, 1758}
 
 FACTS_COLLECTION = "techbear_facts"
 VOICE_COLLECTION = "techbear_voice"
+LORE_COLLECTION = "techbear_lore"
 
 FACTS_CHUNK_CHARS = 1800
 FACTS_OVERLAP_CHARS = 200
-
 VOICE_CHUNK_CHARS = 500
 VOICE_OVERLAP_CHARS = 50
+LORE_CHUNK_CHARS = 800
+LORE_OVERLAP_CHARS = 100
 
 SERIES_PATTERNS = {
     "Maintenance Monday": r"maintenance monday",
@@ -58,19 +72,6 @@ SERIES_PATTERNS = {
     "Guide to the Multiverse": r"guide to the multiverse",
 }
 
-# Posts that are fiction/lore — excluded from facts retrieval, kept in voice.
-# Detected by title since some Multiverse posts have empty tags.
-FICTION_TITLE_PATTERNS = [
-    r"guide to the multiverse",
-    r"friday funday.*multiverse",
-]
-
-FICTION_TAG_MARKERS = [
-    "TechBearsGuideToTheMultiverse",
-    "GuideToTheMultiverse",
-    "MultiverseAdventures",
-]
-
 VOICE_MARKERS = [
     r"\btechnocub", r"\bsugar\b", r"\bhoney\b", r"\bdarling\b",
     r"\bdiva\b", r"\bsequin", r"\bsass", r"\bbear\b",
@@ -78,6 +79,58 @@ VOICE_MARKERS = [
 ]
 
 VOICE_MIN_SCORE = 1
+
+# Fiction detection — Multiverse posts are canon lore
+FICTION_TITLE_PATTERNS = [
+    r"guide to the multiverse",
+    r"friday funday.*multiverse",
+]
+FICTION_TAG_MARKERS = [
+    "TechBearsGuideToTheMultiverse",
+    "GuideToTheMultiverse",
+    "MultiverseAdventures",
+]
+
+# Bio section boundary markers
+BIO_BOUNDARY_PATTERNS = [
+    r"about (the )?tech ?bear",
+    r"about the author",
+    r"greetings,? techno?cubs",
+    r"emerging from the deepest",
+    r"from the deepest.*digital",
+    r"techbear is (a |the |an )(self-|allegedly |fabulously )",
+    r"techbear.*alter ego of jason",
+    r"jason.*gymnarctos studios",
+    r"your (favorite|fabulous|sassy).*tech.?(bear|diva|guru)",
+]
+
+# Canonical tall tale phrases — bio chunks containing these go to lore
+CANONICAL_TALL_TALE_PATTERNS = [
+    r"debugged (the )?(NASA|Y2K|Matrix|Pentagon|mission control|quantum)",
+    r"legend has it",
+    r"single.handedly (debugged|fixed|saved|solved)",
+    r"rusty keyboard and sheer willpower",
+    r"ancient assembly language scrolls",
+    r"lost city of Silicon Valley",
+    r"bedazzled (stylus|keyboard)",
+    r"millennia of experience",
+    r"sequined lab coat",
+    r"debugging systems for the Pentagon",
+    r"accidentally invent",
+    r"root access to the mainframe of the universe",
+    r"quantum computer.*three energy drinks",
+    r"personal tech advisor to three different (royal|head)",
+    r"techno.titan of the twenty.second century",
+    r"digital deity who claims",
+    r"emerged fully formed",
+    r"caffeinated code whisperer",
+    r"predict.*lottery",
+    r"debug.*quantum entanglement",
+]
+
+_compiled_bio = [re.compile(p, re.IGNORECASE) for p in BIO_BOUNDARY_PATTERNS]
+_compiled_canon = [re.compile(p, re.IGNORECASE)
+                   for p in CANONICAL_TALL_TALE_PATTERNS]
 
 
 # =============================================================
@@ -101,17 +154,59 @@ def detect_series(title: str) -> str:
 
 def is_fiction_post(title: str, tags: str) -> bool:
     """
-    Detect fiction/lore posts that should not be used as factual sources.
-    Checks title patterns first (reliable even when tags are empty),
-    then tag markers as a secondary signal.
+    Detect Multiverse fiction posts by title pattern and tags.
+    Title-based detection is primary — some posts have empty tags.
     """
     for pattern in FICTION_TITLE_PATTERNS:
         if re.search(pattern, title, re.IGNORECASE):
             return True
-    for marker in FICTION_TAG_MARKERS:
-        if marker.lower() in tags.lower():
-            return True
-    return False
+    return any(
+        marker.lower() in tags.lower()
+        for marker in FICTION_TAG_MARKERS
+    )
+
+
+def detect_bio_boundary(sentences: list[str]) -> int | None:
+    """
+    Find the sentence index where the About TechBear bio section begins.
+    Returns None if no bio section detected.
+    Searches from the 70% mark onwards to avoid false positives in article body.
+    """
+    start_search = int(len(sentences) * 0.70)
+    for i, sent in enumerate(sentences[start_search:], start=start_search):
+        for pat in _compiled_bio:
+            if pat.search(sent):
+                return i
+    return None
+
+
+def has_canonical_tall_tale(text: str) -> tuple[bool, list[str]]:
+    """
+    Check if text contains canonical TechBear tall tale phrases.
+    Returns (has_lore, list_of_matched_phrases).
+    """
+    matched = []
+    for pat in _compiled_canon:
+        m = pat.search(text)
+        if m:
+            matched.append(m.group()[:80])
+    return bool(matched), matched
+
+
+def split_body_and_bio(content: str) -> tuple[str, str | None]:
+    """
+    Split article content into (body, bio) at the About TechBear boundary.
+    Returns (full_content, None) if no bio section detected.
+    """
+    sentences = re.split(r"(?<=[.!?])\s+", content)
+    bio_start = detect_bio_boundary(sentences)
+
+    if bio_start is None:
+        return content, None
+
+    body = " ".join(sentences[:bio_start]).strip()
+    bio = " ".join(sentences[bio_start:]).strip()
+    return body, bio
 
 
 def voice_score(text: str) -> int:
@@ -156,11 +251,7 @@ def chunk_text(text: str, chunk_size: int, overlap: int) -> list[str]:
 # =============================================================
 
 def embed(texts: list[str]) -> list[list[float]]:
-    """
-    Embed text using Ollama.
-
-    Uses batch endpoint if available, otherwise falls back to per-item calls.
-    """
+    """Embed text using Ollama batch endpoint with per-item fallback."""
     try:
         r = requests.post(
             f"{OLLAMA_BASE_URL}/api/embed",
@@ -192,7 +283,7 @@ def embed(texts: list[str]) -> list[list[float]]:
 # =============================================================
 
 def load_corpus() -> list[dict]:
-    """Load and clean WordPress CSV corpus."""
+    """Load, clean, and annotate WordPress CSV corpus."""
     posts = []
 
     with open(CORPUS_PATH, newline="", encoding="utf-8") as f:
@@ -204,17 +295,42 @@ def load_corpus() -> list[dict]:
             if post_id in EXCLUDED_IDS:
                 continue
 
-            row["clean_content"] = strip_html(row["Content"])
-            row["series"] = detect_series(row["Title"])
-            row["is_fiction"] = is_fiction_post(
-                row["Title"], row.get("Tags", ""))
+            raw_content = strip_html(row["Content"])
+            title = row["Title"]
+            tags = row.get("Tags", "")
+
+            is_fiction = is_fiction_post(title, tags)
+
+            if is_fiction:
+                # Multiverse posts — full content goes to lore as canon
+                row["clean_content"] = raw_content
+                row["body_content"] = raw_content
+                row["bio_content"] = None
+                row["is_fiction"] = True
+                row["lore_tier"] = "canon"
+                row["has_canonical_lore"] = True
+                row["canonical_phrases"] = []
+            else:
+                # Factual posts — split body from bio
+                body, bio = split_body_and_bio(raw_content)
+                has_lore, phrases = has_canonical_tall_tale(bio or "")
+
+                row["clean_content"] = raw_content
+                row["body_content"] = body
+                row["bio_content"] = bio
+                row["is_fiction"] = False
+                row["lore_tier"] = None
+                row["has_canonical_lore"] = has_lore
+                row["canonical_phrases"] = phrases
+
+            row["series"] = detect_series(title)
             posts.append(row)
 
     return posts
 
 
 # =============================================================
-# Chroma setup (refactored)
+# Chroma setup
 # =============================================================
 
 def init_chroma():
@@ -234,13 +350,13 @@ def init_embedding_function():
 def init_collections(client, embed_fn, force: bool):
     """Create or reset Chroma collections."""
     if force:
-        for name in [FACTS_COLLECTION, VOICE_COLLECTION]:
+        for name in [FACTS_COLLECTION, VOICE_COLLECTION, LORE_COLLECTION]:
             try:
                 client.delete_collection(name)
                 print(f"  Deleted existing collection: {name}")
-            except (ValueError, RuntimeError) as e:
-                # Chroma raises runtime errors inconsistently across versions
-                # Safe to ignore "not found" cases during reset
+            except Exception as e:  # pylint: disable=broad-exception-caught
+                # ChromaDB raises NotFoundError, ValueError, or RuntimeError
+                # inconsistently across versions — all are safe to ignore here
                 print(f"  Delete skipped for {name}: {e}")
         return None
 
@@ -248,12 +364,11 @@ def init_collections(client, embed_fn, force: bool):
         name=FACTS_COLLECTION,
         embedding_function=embed_fn,
         metadata={
-            "description": "TechBear factual content",
+            "description": "TechBear factual technical content",
             "embed_model": EMBED_MODEL,
             "chunk_chars": FACTS_CHUNK_CHARS,
         },
     )
-
     voice_col = client.get_or_create_collection(
         name=VOICE_COLLECTION,
         embedding_function=embed_fn,
@@ -263,16 +378,32 @@ def init_collections(client, embed_fn, force: bool):
             "chunk_chars": VOICE_CHUNK_CHARS,
         },
     )
+    lore_col = client.get_or_create_collection(
+        name=LORE_COLLECTION,
+        embedding_function=embed_fn,
+        metadata={
+            "description": "TechBear canon lore and tall tale background",
+            "embed_model": EMBED_MODEL,
+            "chunk_chars": LORE_CHUNK_CHARS,
+        },
+    )
 
-    return facts_col, voice_col
+    return facts_col, voice_col, lore_col
 
 
-def already_populated(facts_col, voice_col) -> bool:
+def already_populated(facts_col, voice_col, lore_col) -> bool:
     """Check if collections already contain data."""
-    if facts_col.count() > 0 or voice_col.count() > 0:
+    counts = {
+        "facts": facts_col.count(),
+        "voice": voice_col.count(),
+        "lore": lore_col.count(),
+    }
+    if any(c > 0 for c in counts.values()):
         print(
             f"\nCollections already populated "
-            f"(facts={facts_col.count()}, voice={voice_col.count()})."
+            f"(facts={counts['facts']}, "
+            f"voice={counts['voice']}, "
+            f"lore={counts['lore']})."
         )
         print("Run with --force to rebuild.")
         return True
@@ -283,76 +414,188 @@ def already_populated(facts_col, voice_col) -> bool:
 # Ingestion
 # =============================================================
 
-def ingest_collection(
-    collection: chromadb.Collection,
-    posts: list[dict],
-    chunk_size: int,
-    overlap: int,
-    voice_filter: bool,
-    label: str,
-) -> None:
-    """Chunk, embed, and ingest posts into a collection."""
-    total = 0
-    skipped = 0
-
+def ingest_facts(collection, posts: list[dict]) -> None:
+    """
+    Ingest body content of non-fiction posts into techbear_facts.
+    Bio sections excluded. is_fiction=False filter applied at retrieval time.
+    """
     batch_ids, batch_docs, batch_metas = [], [], []
     batch_size = 50
+    total = 0
 
     for post in posts:
-        post_id = post["ID"]
-        title = post["Title"]
-        series = post["series"]
-        date = post["Date"][:10]
-        tags = post["Tags"][:500]
-        content = post["clean_content"]
+        if post["is_fiction"]:
+            continue  # Multiverse posts go to lore only
 
-        chunks = chunk_text(content, chunk_size, overlap)
+        post_id = post["ID"]
+        content = post["body_content"]  # Body only — bio excluded
+        if not content:
+            continue
+
+        chunks = chunk_text(content, FACTS_CHUNK_CHARS, FACTS_OVERLAP_CHARS)
 
         for i, chunk in enumerate(chunks):
-            score = voice_score(chunk)
-
-            if voice_filter and score < VOICE_MIN_SCORE:
-                skipped += 1
-                continue
-
-            batch_ids.append(f"{post_id}_chunk_{i}")
+            batch_ids.append(f"facts_{post_id}_chunk_{i}")
             batch_docs.append(chunk)
             batch_metas.append({
                 "post_id": int(post_id),
-                "title": title,
-                "series": series,
-                "date": date,
-                "tags": tags,
-                "voice_score": score,
+                "title": post["Title"],
+                "series": post["series"],
+                "date": post["Date"][:10],
+                "tags": post.get("Tags", "")[:500],
+                "voice_score": voice_score(chunk),
                 "chunk_index": i,
                 "total_chunks": len(chunks),
-                "is_fiction": is_fiction_post(title, tags),
+                "is_fiction": False,
+                "content_type": "article",
             })
-
             total += 1
 
             if len(batch_ids) >= batch_size:
                 _flush_batch(collection, batch_ids,
-                             batch_docs, batch_metas, label)
+                             batch_docs, batch_metas, "facts")
                 batch_ids, batch_docs, batch_metas = [], [], []
 
     if batch_ids:
-        _flush_batch(collection, batch_ids, batch_docs, batch_metas, label)
+        _flush_batch(collection, batch_ids, batch_docs, batch_metas, "facts")
+
+    print(f"  [facts] Done — {total} chunks ingested")
+
+
+def ingest_voice(collection, posts: list[dict]) -> None:
+    """
+    Ingest all posts into techbear_voice using voice score filtering.
+    Includes Multiverse posts — they have excellent voice exemplars.
+    """
+    batch_ids, batch_docs, batch_metas = [], [], []
+    batch_size = 50
+    total = 0
+    skipped = 0
+
+    for post in posts:
+        post_id = post["ID"]
+        content = post["clean_content"]  # Full content for voice
+        if not content:
+            continue
+
+        chunks = chunk_text(content, VOICE_CHUNK_CHARS, VOICE_OVERLAP_CHARS)
+
+        for i, chunk in enumerate(chunks):
+            score = voice_score(chunk)
+            if score < VOICE_MIN_SCORE:
+                skipped += 1
+                continue
+
+            batch_ids.append(f"voice_{post_id}_chunk_{i}")
+            batch_docs.append(chunk)
+            batch_metas.append({
+                "post_id": int(post_id),
+                "title": post["Title"],
+                "series": post["series"],
+                "date": post["Date"][:10],
+                "tags": post.get("Tags", "")[:500],
+                "voice_score": score,
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+                "is_fiction": post["is_fiction"],
+                "content_type": "voice",
+            })
+            total += 1
+
+            if len(batch_ids) >= batch_size:
+                _flush_batch(collection, batch_ids,
+                             batch_docs, batch_metas, "voice")
+                batch_ids, batch_docs, batch_metas = [], [], []
+
+    if batch_ids:
+        _flush_batch(collection, batch_ids, batch_docs, batch_metas, "voice")
+
+    print(f"  [voice] Done — {total} chunks ingested, {skipped} skipped")
+
+
+def ingest_lore(collection, posts: list[dict]) -> None:
+    """
+    Ingest lore content into techbear_lore:
+        - Multiverse episodes: full content, lore_tier=canon
+        - Bio sections with canonical tall tale phrases: lore_tier=tall_tale
+
+    Never used for factual validation — lore consistency only.
+    """
+    batch_ids, batch_docs, batch_metas = [], [], []
+    batch_size = 50
+    total = 0
+    canon_count = 0
+    tall_tale_count = 0
+
+    for post in posts:
+        post_id = post["ID"]
+
+        if post["is_fiction"]:
+            # Full Multiverse episode as canon lore
+            content = post["clean_content"]
+            lore_tier = "canon"
+            source_type = "multiverse_episode"
+            consistency_required = True
+        elif post["has_canonical_lore"] and post["bio_content"]:
+            # Bio section tall tale callbacks
+            content = post["bio_content"]
+            lore_tier = "tall_tale"
+            source_type = "article_callback"
+            consistency_required = False
+        else:
+            continue
+
+        if not content:
+            continue
+
+        chunks = chunk_text(content, LORE_CHUNK_CHARS, LORE_OVERLAP_CHARS)
+
+        for i, chunk in enumerate(chunks):
+            chunk_has_lore, phrases = has_canonical_tall_tale(chunk)
+
+            batch_ids.append(f"lore_{post_id}_chunk_{i}")
+            batch_docs.append(chunk)
+            batch_metas.append({
+                "post_id": int(post_id),
+                "title": post["Title"],
+                "series": post["series"],
+                "date": post["Date"][:10],
+                "tags": post.get("Tags", "")[:500],
+                "is_fiction": True,
+                "lore_tier": lore_tier,
+                "source_type": source_type,
+                "consistency_required": consistency_required,
+                "has_canonical_phrases": chunk_has_lore,
+                "canonical_phrases": ", ".join(phrases[:3]),
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+            })
+            total += 1
+            if lore_tier == "canon":
+                canon_count += 1
+            else:
+                tall_tale_count += 1
+
+            if len(batch_ids) >= batch_size:
+                _flush_batch(collection, batch_ids,
+                             batch_docs, batch_metas, "lore")
+                batch_ids, batch_docs, batch_metas = [], [], []
+
+    if batch_ids:
+        _flush_batch(collection, batch_ids, batch_docs, batch_metas, "lore")
 
     print(
-        f"  [{label}] Done — {total} chunks ingested"
-        + (f", {skipped} skipped" if voice_filter else "")
+        f"  [lore] Done — {total} chunks ingested "
+        f"({canon_count} canon, {tall_tale_count} tall_tale)"
     )
 
 
 def _flush_batch(collection, ids, docs, metas, label: str) -> None:
     """Embed and upsert batch into ChromaDB."""
     print(f"  [{label}] Embedding batch of {len(ids)}...", end="", flush=True)
-
     t0 = time.perf_counter()
     embeddings = embed(docs)
     print(f" {time.perf_counter() - t0:.1f}s")
-
     collection.upsert(
         ids=ids,
         documents=docs,
@@ -362,13 +605,19 @@ def _flush_batch(collection, ids, docs, metas, label: str) -> None:
 
 
 # =============================================================
-# Main orchestration
+# Main
 # =============================================================
 
 def main() -> None:
-    """Ingest the WordPress corpus into ChromaDB facts and voice collections."""
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--force", action="store_true")
+    """Ingest the WordPress corpus into ChromaDB facts, voice, and lore collections."""
+    parser = argparse.ArgumentParser(
+        description="Ask TechBear corpus ingestion"
+    )
+    parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Delete and rebuild all collections",
+    )
     args = parser.parse_args()
 
     if not CORPUS_PATH.exists():
@@ -382,41 +631,36 @@ def main() -> None:
     result = init_collections(client, embed_fn, args.force)
 
     if args.force:
-        # --force deleted collections and returned None; re-init clean
-        facts_col, voice_col = init_collections(client, embed_fn, force=False)
+        facts_col, voice_col, lore_col = init_collections(
+            client, embed_fn, force=False
+        )
     else:
-        facts_col, voice_col = result  # type: ignore[misc]
+        facts_col, voice_col, lore_col = result  # type: ignore[misc]
 
-    if not args.force and already_populated(facts_col, voice_col):
+    if not args.force and already_populated(facts_col, voice_col, lore_col):
         sys.exit(0)
 
     print("\nLoading corpus...")
     posts = load_corpus()
-    print(f"Loaded {len(posts)} posts")
+    fiction = sum(1 for p in posts if p["is_fiction"])
+    with_lore = sum(
+        1 for p in posts if p["has_canonical_lore"] and not p["is_fiction"])
+    print(
+        f"Loaded {len(posts)} posts ({fiction} fiction, {with_lore} with tall tale bios)")
 
-    print("\nIngesting facts...")
-    ingest_collection(
-        facts_col,
-        posts,
-        FACTS_CHUNK_CHARS,
-        FACTS_OVERLAP_CHARS,
-        voice_filter=False,
-        label="facts",
-    )
+    print("\nIngesting facts (body content only, fiction excluded)...")
+    ingest_facts(facts_col, posts)
 
-    print("\nIngesting voice...")
-    ingest_collection(
-        voice_col,
-        posts,
-        VOICE_CHUNK_CHARS,
-        VOICE_OVERLAP_CHARS,
-        voice_filter=True,
-        label="voice",
-    )
+    print("\nIngesting voice (all posts, voice-scored)...")
+    ingest_voice(voice_col, posts)
+
+    print("\nIngesting lore (Multiverse canon + tall tale bio sections)...")
+    ingest_lore(lore_col, posts)
 
     print("\nDone.")
-    print(f"{FACTS_COLLECTION}: {facts_col.count()}")
-    print(f"{VOICE_COLLECTION}: {voice_col.count()}")
+    print(f"  {FACTS_COLLECTION}: {facts_col.count()} chunks")
+    print(f"  {VOICE_COLLECTION}: {voice_col.count()} chunks")
+    print(f"  {LORE_COLLECTION}: {lore_col.count()} chunks")
 
 
 if __name__ == "__main__":
