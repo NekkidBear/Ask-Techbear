@@ -1,2 +1,5 @@
 [MESSAGES CONTROL]
 disable = C0301
+
+[MASTER]
+ignore-paths = alembic

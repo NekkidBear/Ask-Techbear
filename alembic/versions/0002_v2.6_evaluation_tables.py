@@ -11,6 +11,11 @@ Adds persistent evaluation infrastructure:
     human_reviews       — Jason's evaluation per run
     review_notes        — structured issue notes per human review
 """
+# pylint: disable=no-member,invalid-name
+# E1101 (no-member): alembic.op members are injected at runtime.
+# C0103 (invalid-name): Alembic version files use lowercase module-level
+#   constants (revision, down_revision, etc.) and numeric filename prefixes
+#   by convention — these are not standard Python constants.
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -24,6 +29,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    """Create v2.6 evaluation and reporting tables."""
     # pipeline_runs
     op.create_table(
         "pipeline_runs",
@@ -206,6 +212,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop v2.6 evaluation and reporting tables in reverse dependency order."""
     op.drop_table("review_notes")
     op.drop_table("human_reviews")
     op.drop_table("llm_scores")

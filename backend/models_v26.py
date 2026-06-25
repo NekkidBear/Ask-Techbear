@@ -16,6 +16,10 @@ Design principles:
     - XLSX workbooks are exports, not the source of truth
     - questions.llm_draft is legacy — new answers persist through pipeline_runs
 """
+# pylint: disable=not-callable
+# E1102 (not-callable): sqlalchemy.sql.func members (e.g. func.now()) are
+#   dynamically generated SQL function proxies — Pylint cannot determine
+#   they are callable at static analysis time.
 
 import uuid
 

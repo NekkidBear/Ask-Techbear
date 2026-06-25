@@ -15,6 +15,11 @@ Tables captured:
     session_context
     blocklist
 """
+# pylint: disable=no-member,invalid-name
+# E1101 (no-member): alembic.op members are injected at runtime.
+# C0103 (invalid-name): Alembic version files use lowercase module-level
+#   constants (revision, down_revision, etc.) and numeric filename prefixes
+#   by convention — these are not standard Python constants.
 from typing import Sequence, Union
 
 import sqlalchemy as sa
@@ -28,6 +33,7 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
+    """Create initial v2.5 baseline tables."""
     # sessions
     op.create_table(
         "sessions",
@@ -134,6 +140,7 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    """Drop initial v2.5 baseline tables in reverse dependency order."""
     op.drop_table("blocklist")
     op.drop_table("session_context")
     op.drop_table("presentation_versions")
