@@ -25,8 +25,10 @@ from requests.exceptions import RequestException
 # Configuration
 # =============================================================
 
-OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") + "/api/chat"
-CHARACTER_CRITIQUE_MODEL = os.getenv("CHARACTER_CRITIQUE_MODEL", "mistral:latest")
+OLLAMA_URL = os.getenv(
+    "OLLAMA_BASE_URL", "http://localhost:11434") + "/api/chat"
+CHARACTER_CRITIQUE_MODEL = os.getenv(
+    "CHARACTER_CRITIQUE_MODEL", "mistral:latest")
 
 # backend/services/pipeline/character_critique.py
 # parents[0]=pipeline/ [1]=services/ [2]=backend/ → backend/character/
@@ -103,7 +105,8 @@ def _build_critique_messages(
         if verbatim_flags else "No verbatim runs flagged by contiguous-run check."
     )
     batch_context_block = (
-        "\n\n".join(f"[PRIOR DRAFT {i+1}]\n{d}" for i, d in enumerate(batch_context))
+        "\n\n".join(f"[PRIOR DRAFT {i+1}]\n{d}" for i,
+                    d in enumerate(batch_context))
         if batch_context else "(No other batch drafts to compare against.)"
     )
 
@@ -147,7 +150,7 @@ Respond with this exact JSON structure:
     }}
   ],
   "summary": "<one-sentence assessment>",
-  "pass_recommendation": "pass" | "flag_for_review" | "escalate_human"
+  "pass_recommendation": "pass" | "loop_voice_pass" | "flag_for_review" | "escalate_human"
 }}
 
 Scoring guide:
@@ -157,7 +160,11 @@ Scoring guide:
 - word_count_compliance: 10 = 150-250 words, scale down proportionally outside range
 - anti_formulaic: 10 = does something unexpected within the structure, 0 = pure mad-libs
 - overall_pass: true if all scores >= 6 and no critical flags
-- pass_recommendation: "pass" if overall_pass; "flag_for_review" if minor issues; "escalate_human" if critical issues or AI self-disclosure
+- pass_recommendation:
+    "pass" if overall_pass;
+    "loop_voice_pass" if character_fidelity < 6 or regurgitation < 6 (likely fixable by regenerating the voice draft);
+    "flag_for_review" if minor issues only (scores >= 6 but not confident);
+    "escalate_human" if critical flags present or AI self-disclosure detected
 """
 
     return [
@@ -272,12 +279,19 @@ def run(artifact: dict) -> dict:
     }
 
     recommendation = critique.get("pass_recommendation", "flag_for_review")
-    if recommendation == "escalate_human":
+
+    if recommendation == "loop_voice_pass":
+        # Signal the orchestrator to retry the voice pass — it enforces the cap
+        artifact.setdefault("flags", {})[
+            "character_critique_loop_requested"] = True
+
+    elif recommendation == "escalate_human":
         artifact["passed"] = False
         artifact["failure_reason"] = (
             f"character_critique: escalating to human — "
             f"character_fidelity={critique.get('character_fidelity_score')}, "
             f"critical_flags={artifact['scores']['character_critique']['critical_flag_count']}"
         )
+    # "pass" and "flag_for_review" leave artifact["passed"] = True
 
     return artifact
