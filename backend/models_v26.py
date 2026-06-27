@@ -256,3 +256,33 @@ class ReviewNote(Base):
     )
 
     human_review = relationship("HumanReview", back_populates="notes")
+
+
+class TestQuestion(Base):
+    """
+    A question used in pipeline test harness runs.
+
+    Decouples the question set from the harness code — questions are
+    managed in the database and queried at run time rather than hardcoded.
+
+    pass_label values: A (DB/lore), B (corpus/RAG), C (lore recall)
+    expected_retrieval_mode: factual | lore | hybrid | tall_tale
+    active: False to disable without deleting (e.g. known open bug)
+    key_claims: JSONB list of strings — used by Pass B similarity scoring
+    """
+    __tablename__ = "test_questions"
+
+    # e.g. db_001, corpus_001, lore_001
+    id = Column(String(20), primary_key=True)
+    pass_label = Column(String(5), nullable=False)
+    # lore | observation | corpus | tall_tale
+    category = Column(String(50))
+    question = Column(Text, nullable=False)
+    expected_scope = Column(String(30))
+    expected_retrieval_mode = Column(String(20))
+    key_claims = Column(JSONB)
+    source_post = Column(String(200))
+    source_url = Column(String(200))
+    notes = Column(Text)
+    active = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
