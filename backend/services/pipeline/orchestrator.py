@@ -6,8 +6,8 @@ Sole module permitted to import multiple pipeline phases.
 All inter-phase communication passes through the artifact dict.
 
 Pipeline order:
-    retrieval (pre-pipeline) →
-    moderation → factual_pass → fact_critique →
+    moderation → retrieval →
+    factual_pass → fact_critique →
     educational_pass → voice_pass →
     semantic_check → character_critique → editorial_pass →
     editorial_critique → educational_critique → handoff
@@ -71,6 +71,13 @@ def _retrieve(artifact: dict) -> dict:
     """
     question = artifact["submission"].get("question", "")
     retrieval_mode = artifact["submission"].get("retrieval_mode", "factual")
+    print("=" * 72)
+    print("DEBUG ORCHESTRATOR._retrieve")
+    print("question:", question)
+    print("submission.retrieval_mode:", artifact["submission"].get("retrieval_mode"))
+    print("resolved retrieval_mode:", retrieval_mode)
+    print("submission keys:", sorted(artifact["submission"].keys()))
+    print("=" * 72)
 
     try:
         chunks = rag_service.retrieve_for_mode(question, retrieval_mode)
@@ -216,14 +223,14 @@ def run_pipeline(
         "loop_counts": {},
     }
 
-    # ── Retrieval (pre-pipeline) ──────────────────────────
-    _notify("retrieval")
-    artifact = _retrieve(artifact)
-
     # ── Phase 1: Moderation ───────────────────────────────
     _notify("moderation")
     artifact = moderation.run(artifact)
     _gate("moderation", artifact)
+
+    # ── Retrieval (post-pipeline) ──────────────────────────
+    _notify("retrieval")
+    artifact = _retrieve(artifact)
 
     # ── Phases 2–3: Factual pass + fact critique (with retry) ──
     artifact = _run_phase_with_retry(

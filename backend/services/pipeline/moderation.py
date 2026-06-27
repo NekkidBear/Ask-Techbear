@@ -1,3 +1,12 @@
+from requests.exceptions import RequestException
+from rapidfuzz import fuzz
+from dotenv import load_dotenv
+import requests
+from pathlib import Path
+from functools import lru_cache
+import os
+import json
+
 """
 TechBear Async Pipeline — moderation.py
 
@@ -23,15 +32,6 @@ Design note:
     synchronous psycopg2 connection and caches it for the run.
 """
 
-import json
-import os
-from functools import lru_cache
-from pathlib import Path
-
-import requests
-from dotenv import load_dotenv
-from rapidfuzz import fuzz
-from requests.exceptions import RequestException
 
 try:
     import psycopg2 as _psycopg2
@@ -46,7 +46,8 @@ load_dotenv()
 # Configuration
 # =============================================================
 
-OLLAMA_URL = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434") + "/api/chat"
+OLLAMA_URL = os.getenv(
+    "OLLAMA_BASE_URL", "http://localhost:11434") + "/api/chat"
 MODERATION_MODEL = os.getenv("MODERATION_MODEL", "llama3.1:8b")
 
 # rapidfuzz threshold — 85 catches near-misses without over-flagging
@@ -283,6 +284,17 @@ def run(artifact: dict) -> dict:
     }
     artifact.setdefault("scores", {})["moderation"] = result
     artifact["submission"]["retrieval_mode"] = retrieval_mode
+
+    print("=" * 72)
+    print("DEBUG MODERATION.run")
+    print("question:", question)
+    print("classification.retrieval_mode:", retrieval_mode)
+    print("submission.retrieval_mode:",
+          artifact["submission"].get("retrieval_mode"))
+    print("scope:", classification.get("scope"))
+    print("intent:", classification.get("intent"))
+    print("decision:", decision)
+    print("=" * 72)
 
     if flag_reason:
         artifact.setdefault("flags", {})["moderation"] = flag_reason
