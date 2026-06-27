@@ -1,6 +1,19 @@
-import uuid
+"""
+database.py — Async PostgreSQL connection for Ask TechBear
+Gymnarctos Studios LLC
+
+Uses SQLAlchemy's async engine with asyncpg.
+Connection string is loaded from .env via python-dotenv.
+
+Future:
+    Session/chat memory will likely use UUID conversation IDs
+    when live TechBear chat is implemented.
+"""
+
+import os
 from contextlib import asynccontextmanager
 
+from dotenv import load_dotenv
 from sqlalchemy.ext.asyncio import (
     AsyncSession,
     async_sessionmaker,
@@ -8,19 +21,6 @@ from sqlalchemy.ext.asyncio import (
 )
 
 from backend.models import Base
-
-
-# =============================================================
-# database.py — Async PostgreSQL connection for Ask TechBear
-# Gymnarctos Studios LLC
-# =============================================================
-# Uses SQLAlchemy's async engine with asyncpg driver.
-# Connection string is loaded from .env via python-dotenv.
-# =============================================================
-
-# Load environment variables
-from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
@@ -40,11 +40,13 @@ engine = create_async_engine(
 # Session factory — use this to create database sessions
 # expire_on_commit=False prevents attributes from expiring
 # after a commit, which matters in async context
+# pylint: disable=invalid-name
 AsyncSessionLocal = async_sessionmaker(
     engine,
     class_=AsyncSession,
     expire_on_commit=False,
 )
+# pylint: enable=invalid-name
 
 
 async def init_db():

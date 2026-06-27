@@ -16,9 +16,6 @@ Usage (from repo root):
 import argparse
 import asyncio
 import logging
-import sys
-
-from sqlalchemy import text
 
 from backend.database import get_db_context
 from backend.models_v26 import TestQuestion
@@ -479,7 +476,7 @@ async def seed(dry_run: bool = False) -> None:
         )
 
     print()
-    print(f"Test question seed complete.")
+    print("Test question seed complete.")
     print(f"  Inserted: {inserted}")
     print(f"  Skipped (already present): {skipped}")
     print(f"  Total in table: {len(ALL_QUESTIONS)}")
@@ -492,6 +489,7 @@ async def seed(dry_run: bool = False) -> None:
 
 
 def main() -> None:
+    """seed test_questions table from hardcoded question sets"""
     parser = argparse.ArgumentParser(
         description="Seed test_questions table from hardcoded question sets"
     )

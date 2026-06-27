@@ -1,11 +1,23 @@
 """
 routers/questions.py — Question submission and queue management
 Gymnarctos Studios LLC
+
+Notes:
+    This module uses SQLAlchemy classic Column(...) model declarations.
+
+    Known Pylance/Pyright false positives are expected until a future
+    SQLAlchemy 2.0 typed-model migration (Mapped[] / mapped_column()):
+
+    - reportAttributeAccessIssue on ORM field assignment
+    - reportGeneralTypeIssues on Column[UUID] truthiness checks
+    - reportArgumentType where ORM string fields are passed as str
+
+    These diagnostics do not currently indicate runtime failures.
 """
 
 import re
 from datetime import datetime
-from typing import Optional, Union
+from typing import Optional
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -15,7 +27,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db
-from backend.models import Question, Session as EventSession, PresentationVersion
+from backend.models import Question, Session as EventSession
 from backend.services.llm import generate_techbear_response
 from backend.services.moderation import check_blocklist
 
@@ -35,6 +47,7 @@ class QuestionSubmit(BaseModel):
     @field_validator('attendee_name')
     @classmethod
     def name_not_empty(cls, v):
+        """Normalize and validate the attendee name."""
         v = v.strip()
         if not v:
             raise ValueError('Name cannot be empty')
@@ -43,6 +56,7 @@ class QuestionSubmit(BaseModel):
     @field_validator('question_text')
     @classmethod
     def question_not_empty(cls, v):
+        """Normalize and validate the question text."""
         v = v.strip()
         if not v:
             raise ValueError('Question cannot be empty')
@@ -63,8 +77,9 @@ class QuestionSubmit(BaseModel):
 class QuestionResponse(BaseModel):
     """Schema for question data returned to clients."""
     id: int
-    attendee_id: Optional[int] = None # Fallback flexibility
-    session_id: Optional[Union[UUID,str]] = None  # Match database schema fields safely
+    attendee_id: Optional[int] = None  # Fallback flexibility
+    # Match database schema fields safely
+    session_id: Optional[UUID | str] = None
     attendee_name: str
     question_text: str
     status: str
@@ -75,6 +90,7 @@ class QuestionResponse(BaseModel):
     presentation_text: Optional[str] = None
 
     class Config:
+        """Configuration for the Pydantic model."""
         from_attributes = True
 
 
@@ -96,7 +112,7 @@ async def get_active_session(db: AsyncSession) -> EventSession:
     If none exists, creates one automatically.
     """
     result = await db.execute(
-        select(EventSession).where(EventSession.active == True)
+        select(EventSession).where(EventSession.active.is_(True))
     )
     session = result.scalar_one_or_none()
 
@@ -138,7 +154,7 @@ async def submit_question(
     db.add(question)
     await db.flush()
     await db.refresh(question)
-    
+
     # Pack dictionary manually to bypass model relationship lazy-loading completely
     question_dict = {
         "id": question.id,
@@ -150,9 +166,10 @@ async def submit_question(
         "highlight": question.highlight,
         "llm_draft": question.llm_draft,
         "answered_at": question.answered_at,
-        "presentation_text": None  # Intentionally empty; newly born questions have no approved text yet
+        # Intentionally empty; newly born questions have no approved text yet
+        "presentation_text": None
     }
-    
+
     return QuestionResponse.model_validate(question_dict)
 
 
@@ -195,7 +212,7 @@ async def get_highlighted_questions(
     result = await db.execute(
         select(Question)
         .options(selectinload(Question.presentation_version))
-        .where(Question.highlight == True)
+        .where(Question.highlight.is_(True))
         .order_by(
             Question.display_order.asc().nullslast(),
             Question.answered_at.desc(),
@@ -222,7 +239,8 @@ async def update_question(
     Dashboard endpoint — update question status, highlight, draft.
     """
     result = await db.execute(
-        select(Question).options(selectinload(Question.presentation_version)).where(Question.id == question_id)
+        select(Question).options(selectinload(Question.presentation_version)).where(
+            Question.id == question_id)
     )
     question = result.scalar_one_or_none()
     if not question:
@@ -239,7 +257,7 @@ async def update_question(
 
     await db.flush()
     await db.refresh(question)
-    
+
     response_data = QuestionResponse.model_validate(question)
     if question.presentation_version:
         response_data.presentation_text = question.presentation_version.display_text
@@ -255,7 +273,8 @@ async def generate_draft(
     Triggers TechBear's LLM to draft a response for this question.
     """
     result = await db.execute(
-        select(Question).options(selectinload(Question.presentation_version)).where(Question.id == question_id)
+        select(Question).options(selectinload(Question.presentation_version)).where(
+            Question.id == question_id)
     )
     question = result.scalar_one_or_none()
     if not question:
@@ -271,7 +290,7 @@ async def generate_draft(
     question.draft_generated_at = datetime.utcnow()
     await db.flush()
     await db.refresh(question)
-    
+
     response_data = QuestionResponse.model_validate(question)
     if question.presentation_version:
         response_data.presentation_text = question.presentation_version.display_text

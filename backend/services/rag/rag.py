@@ -14,7 +14,7 @@ Retrieval modes:
   tall_tale — lore (tall_tale tier only) + voice (TechBear background questions)
 """
 
-from typing import Dict, List
+from typing import Any, Dict, List, cast
 
 import chromadb
 import requests
@@ -86,7 +86,7 @@ def retrieve_lore(
     results = lore_col.query(
         query_texts=[query],
         n_results=k,
-        where=where if where else None,
+        where=cast(Any, where) if where else None,
     )
     return _pack(results)
 

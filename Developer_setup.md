@@ -343,3 +343,19 @@ kill -9 <PID>
 
 _See `ROADMAP.md` and `ROADMAP-v2-addendum.md` for architecture decisions
 and build order rationale._
+
+Current ORM models use classic SQLAlchemy Column(...) declarations.
+
+Pyright/Pylance may report:
+
+- reportAttributeAccessIssue
+- reportArgumentType
+- reportGeneralTypeIssues
+
+when interacting with ORM instance fields.
+
+These are expected and do not currently indicate runtime failures.
+
+Planned resolution:
+Future migration to SQLAlchemy 2.0 typed models
+using Mapped[] and mapped_column().

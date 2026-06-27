@@ -27,7 +27,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 
-from sqlalchemy import select, not_, exists
+from sqlalchemy import select, not_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import get_db_context

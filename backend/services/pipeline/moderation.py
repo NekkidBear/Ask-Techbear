@@ -1,12 +1,3 @@
-from requests.exceptions import RequestException
-from rapidfuzz import fuzz
-from dotenv import load_dotenv
-import requests
-from pathlib import Path
-from functools import lru_cache
-import os
-import json
-
 """
 TechBear Async Pipeline — moderation.py
 
@@ -31,6 +22,16 @@ Design note:
     outside that lifecycle. This module loads the blocklist once via a
     synchronous psycopg2 connection and caches it for the run.
 """
+
+import json
+import os
+from functools import lru_cache
+from pathlib import Path
+
+import requests
+from dotenv import load_dotenv
+from rapidfuzz import fuzz
+from requests.exceptions import RequestException
 
 
 try:
@@ -67,9 +68,8 @@ def _load_blocklist() -> list[tuple[str, str]]:
     Falls back to an empty list if DB is unavailable —
     pipeline continues but flags the degraded state.
     """
-    if not _PSYCOPG2_AVAILABLE:
+    if _psycopg2 is None:
         return []
-
     try:
         db_url = os.getenv(
             "DATABASE_URL",

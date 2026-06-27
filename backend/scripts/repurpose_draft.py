@@ -32,16 +32,11 @@ Output:
 
 import argparse
 import csv
-import json
 import logging
-import os
 import re
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-
-import requests
-from requests.exceptions import RequestException
 
 from backend.services.pipeline import educational_pass, voice_pass
 from backend.services.rag import rag as rag_service
@@ -94,9 +89,17 @@ def _strip_html(raw: str) -> str:
     raw = re.sub(r"<!--.*?-->", "", raw, flags=re.DOTALL)
     raw = re.sub(r"<[^>]+>", "", raw)
     for entity, replacement in [
-        ("&amp;", "&"), ("&nbsp;", " "), ("&lt;", "<"), ("&gt;", ">"),
-        ("&#8217;", "'"), ("&#8220;", '"'), ("&#8221;", '"'), ("&#8216;", "'"),
-        ("&rsquo;", "'"), ("&ldquo;", '"'), ("&rdquo;", '"'),
+        ("&amp;", "&"),
+        ("&nbsp;", " "),
+        ("&lt;", "<"),
+        ("&gt;", ">"),
+        ("&#8217;", "'"),
+        ("&#8220;", '"'),
+        ("&#8221;", '"'),
+        ("&#8216;", "'"),
+        ("&rsquo;", "'"),
+        ("&ldquo;", '"'),
+        ("&rdquo;", '"'),
     ]:
         raw = raw.replace(entity, replacement)
     raw = re.sub(r"\n{3,}", "\n\n", raw)
@@ -114,6 +117,7 @@ def _is_jason_voice_candidate(title: str, content: str) -> bool:
     title_lower = title.lower()
     if any(series in title_lower for series in JASON_VOICE_SERIES):
         return True
+
     # Not TechBear-voiced and doesn't reference the multiverse or D20 / roast content
     return not _is_techbear_voiced(title, content)
 
@@ -152,11 +156,14 @@ def list_candidates(posts: dict[str, dict]) -> None:
         p for p in posts.values()
         if _is_jason_voice_candidate(p["title"], p["content"])
     ]
+
     if not candidates:
         print("  No candidates found.")
         return
+
     for p in candidates:
         print(f"  [{p['id']}] {p['title'][:75]}")
+
     print(f"\n{len(candidates)} candidate(s) found.")
     print("Run with --post-ids to process specific posts.\n")
 
@@ -170,7 +177,6 @@ def _build_artifact_from_post(post: dict) -> dict:
     Construct a minimal pipeline artifact from a post dict.
     The factual draft is the stripped post content — accuracy assumed.
     """
-    # Use the post title as the "question" for RAG retrieval relevance
     submission = {
         "id": f"repurpose_{post['id']}",
         "attendee_name": "repurpose",
@@ -183,12 +189,14 @@ def _build_artifact_from_post(post: dict) -> dict:
         "retrieval_mode": "factual",
     }
 
-    # Retrieve voice chunks using the post title as the query
     try:
         chunks = rag_service.retrieve_voice(post["title"], k=5)
     except Exception as exc:  # pylint: disable=broad-exception-caught
-        logger.warning("Voice retrieval failed for post %s: %s",
-                       post["id"], exc)
+        logger.warning(
+            "Voice retrieval failed for post %s: %s",
+            post["id"],
+            exc,
+        )
         chunks = []
 
     artifact = {
@@ -196,7 +204,6 @@ def _build_artifact_from_post(post: dict) -> dict:
         "scores": {},
         "flags": {},
         "drafts": {
-            # Treat the full post content as the validated factual draft
             "factual": post["content"],
         },
         "retrieval": {
@@ -221,21 +228,21 @@ def repurpose_post(post: dict) -> dict:
 
     artifact = _build_artifact_from_post(post)
 
-    # Educational structuring — produces lesson arc scaffold
     logger.info("  → educational_pass")
     artifact = educational_pass.run(artifact)
     if not artifact.get("passed", True):
         logger.warning(
-            "  educational_pass failed: %s", artifact.get("failure_reason")
+            "  educational_pass failed: %s",
+            artifact.get("failure_reason"),
         )
         return artifact
 
-    # Voice rewrite
     logger.info("  → voice_pass")
     artifact = voice_pass.run(artifact)
     if not artifact.get("passed", True):
         logger.warning(
-            "  voice_pass failed: %s", artifact.get("failure_reason")
+            "  voice_pass failed: %s",
+            artifact.get("failure_reason"),
         )
         return artifact
 
@@ -251,6 +258,7 @@ def repurpose_post(post: dict) -> dict:
 # =============================================================
 
 def _slugify(title: str) -> str:
+    """Convert a post title into a filesystem-safe slug."""
     slug = title.lower()
     slug = re.sub(r"[^a-z0-9]+", "-", slug)
     return slug.strip("-")[:50]
@@ -265,37 +273,38 @@ def write_output(post: dict, artifact: dict) -> Path:
     edu_structure = artifact.get("drafts", {}).get("educational_structure", "")
     failure = artifact.get("failure_reason", "")
     passed = artifact.get("passed", True)
+    status = "COMPLETE" if passed and voice_draft else "FAILED"
+    failed_message = f"_Generation failed: {failure}_"
+    original_excerpt = " ".join(post["content"].split()[:500])
 
-    lines = [
-        f"# Repurposed Draft — {post['title']}",
-        f"",
-        f"**Source post ID:** {post['id']}  ",
-        f"**Source URL:** {post['permalink']}  ",
-        f"**Original date:** {post['date']}  ",
-        f"**Repurposed at:** {datetime.now(timezone.utc).isoformat()}  ",
-        f"**Status:** {'COMPLETE' if passed and voice_draft else 'FAILED'}",
-        f"",
-        f"---",
-        f"",
-        f"## TechBear Draft",
-        f"",
-        voice_draft if voice_draft else f"_Generation failed: {failure}_",
-        f"",
-        f"---",
-        f"",
-        f"## Educational Structure (scaffold reference)",
-        f"",
-        edu_structure if edu_structure else "_Not generated._",
-        f"",
-        f"---",
-        f"",
-        f"## Original Post (first 500 words)",
-        f"",
-        " ".join(post["content"].split()[:500]),
-        f"",
-    ]
+    content = f"""# Repurposed Draft — {post['title']}
 
-    filename.write_text("\n".join(lines), encoding="utf-8")
+**Source post ID:** {post['id']}
+**Source URL:** {post['permalink']}
+**Original date:** {post['date']}
+**Repurposed at:** {datetime.now(timezone.utc).isoformat()}
+**Status:** {status}
+
+---
+
+## TechBear Draft
+
+{voice_draft if voice_draft else failed_message}
+
+---
+
+## Educational Structure (scaffold reference)
+
+{edu_structure if edu_structure else "_Not generated._"}
+
+---
+
+## Original Post (first 500 words)
+
+{original_excerpt}
+"""
+
+    filename.write_text(content, encoding="utf-8")
     logger.info("  Written to %s", filename)
     return filename
 
@@ -305,6 +314,7 @@ def write_output(post: dict, artifact: dict) -> Path:
 # =============================================================
 
 def main() -> None:
+    """Parse CLI arguments and repurpose selected posts into TechBear drafts."""
     parser = argparse.ArgumentParser(
         description="Repurpose Jason-voice posts into TechBear drafts"
     )
@@ -354,7 +364,8 @@ def main() -> None:
             logger.warning(
                 "Post %s ('%s') appears already TechBear-voiced — skipping. "
                 "Use --force to override.",
-                post_id, post["title"][:50],
+                post_id,
+                post["title"][:50],
             )
             results["failed"].append(post_id)
             continue
@@ -368,16 +379,18 @@ def main() -> None:
             results["failed"].append(post_id)
 
     print()
-    print(f"Repurpose run complete.")
+    print("Repurpose run complete.")
     print(f"  Succeeded: {len(results['succeeded'])}")
+
     for path in results["succeeded"]:
         print(f"    {path}")
+
     if results["failed"]:
         print(f"  Failed/skipped: {len(results['failed'])}")
         for fid in results["failed"]:
             print(f"    post_id={fid}")
-    print()
 
+    print()
     sys.exit(0 if not results["failed"] else 1)
 
 

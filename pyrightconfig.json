@@ -1,0 +1,10 @@
+{
+  "include": ["backend"],
+  "exclude": [
+    "backend/venv",
+    "backend/__pycache__",
+    "alembic"
+  ],
+  "venvPath": "backend",
+  "venv": "venv"
+}

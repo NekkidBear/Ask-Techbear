@@ -3,7 +3,6 @@ main.py — FastAPI application entry point for Ask TechBear
 Gymnarctos Studios LLC
 """
 
-import os
 from contextlib import asynccontextmanager
 
 from dotenv import load_dotenv
@@ -11,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import init_db
+from backend.routers import questions
 
 load_dotenv()
 
@@ -18,8 +18,9 @@ load_dotenv()
 # Lifespan — runs on startup and shutdown
 # =============================================================
 
+
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     """
     Startup: initialize database tables.
     Shutdown: clean up connections.
@@ -70,8 +71,8 @@ app.add_middleware(
 # Routers
 # =============================================================
 
-from backend.routers import questions
-app.include_router(questions.router, prefix="/api/questions", tags=["questions"])
+app.include_router(
+    questions.router, prefix="/api/questions", tags=["questions"])
 
 
 # =============================================================

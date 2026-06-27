@@ -631,14 +631,22 @@ def main() -> None:
     result = init_collections(client, embed_fn, args.force)
 
     if args.force:
-        facts_col, voice_col, lore_col = init_collections(
-            client, embed_fn, force=False
-        )
-    else:
-        facts_col, voice_col, lore_col = result  # type: ignore[misc]
+        init_collections(client, embed_fn, force=True)
 
-    if not args.force and already_populated(facts_col, voice_col, lore_col):
-        sys.exit(0)
+        result = init_collections(client, embed_fn, force=False)
+        if result is None:
+            raise RuntimeError("Failed to initialize Chroma collections.")
+
+        facts_col, voice_col, lore_col = result
+    else:
+        result = init_collections(client, embed_fn, force=False)
+        if result is None:
+            raise RuntimeError("Failed to initialize Chroma collections.")
+
+        facts_col, voice_col, lore_col = result
+
+        if already_populated(facts_col, voice_col, lore_col):
+            sys.exit(0)
 
     print("\nLoading corpus...")
     posts = load_corpus()

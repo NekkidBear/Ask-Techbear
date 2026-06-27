@@ -12,6 +12,7 @@ from backend.services.moderation import seed_default_blocklist
 
 
 async def main():
+    """Populate the database blocklist with the default moderation terms."""
     async with get_db_context() as db:
         await seed_default_blocklist(db)
     print("✅ Blocklist seeded successfully")

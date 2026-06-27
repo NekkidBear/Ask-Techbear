@@ -269,11 +269,11 @@ async def build_report(pipeline_version: str) -> dict:
 def _print_report(report: dict) -> None:
     """Human-readable threshold report."""
     print()
-    print(f"Ask TechBear — Pipeline Threshold Report")
+    print("Ask TechBear — Pipeline Threshold Report")
     print(f"Version: {report['pipeline_version']}")
     print(f"Generated: {report['generated_at']}")
     print()
-    print(f"Summary")
+    print("Summary")
     print(f"  Unreviewed runs:       {report['summary']['unreviewed_runs']}")
     age = report['summary']['oldest_unreviewed_days']
     print(
@@ -301,6 +301,7 @@ def _print_report(report: dict) -> None:
 # =============================================================
 
 def main() -> None:
+    """Run threshold checks for evaluation/reporting triggers."""
     parser = argparse.ArgumentParser(
         description="Ask TechBear pipeline threshold reporter"
     )

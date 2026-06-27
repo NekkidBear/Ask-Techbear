@@ -1,1 +1,12 @@
-# TODO: move to tests/benchmarking/ in cleanup pass — see ROADMAP v2.5.1 notes
+# TODO:
+# Move benchmarking package to tests/benchmarking/ during cleanup pass.
+#
+# Benchmark cleanup plan:
+#   - Move benchmarking code after the pipeline and evaluation reports stabilize.
+#   - Import combined benchmark CSVs into benchmark history/archive DB tables.
+#   - Delete individual per-model CSVs after import.
+#   - Retain selected v1/v2 baseline benchmark CSVs as historical artifacts.
+#   - Keep only the newest X combined CSVs for quick local reference.
+#   - Add tests/benchmarking/benchmark_results/ to .gitignore for future generated runs.
+#
+# See ROADMAP v2.5.1 cleanup milestone.

@@ -17,9 +17,10 @@ Re-running is safe — skips existing entries unless --force is passed.
 import asyncio
 import sys
 
+from sqlalchemy import select
+
 from backend.database import get_db_context
 from backend.models import PresentationVersion
-from sqlalchemy import select
 
 # ── Presentation texts keyed by question_id ────────────────────────────────
 # Format conventions used here:
@@ -186,6 +187,7 @@ We'll exorcise the ghosts from your machine. 🐾""",
 
 
 async def seed(force: bool = False):
+    """Create or update presentation-safe display text for highlighted questions."""
     async with get_db_context() as db:
         skipped = 0
         seeded = 0
@@ -201,17 +203,20 @@ async def seed(force: bool = False):
             if row:
                 if force:
                     row.display_text = display_text
-                    print(f"  ↺  Updated presentation version for question {question_id}")
+                    print(
+                        f"  ↺  Updated presentation version for question {question_id}")
                     seeded += 1
                 else:
-                    print(f"  –  Skipping question {question_id} (already exists; use --force to overwrite)")
+                    print(
+                        f"  –  Skipping question {question_id} (already exists; use --force to overwrite)")
                     skipped += 1
             else:
                 db.add(PresentationVersion(
                     question_id=question_id,
                     display_text=display_text,
                 ))
-                print(f"  ✓  Seeded presentation version for question {question_id}")
+                print(
+                    f"  ✓  Seeded presentation version for question {question_id}")
                 seeded += 1
 
         await db.flush()
@@ -219,5 +224,5 @@ async def seed(force: bool = False):
 
 
 if __name__ == "__main__":
-    force = "--force" in sys.argv
-    asyncio.run(seed(force=force))
+    force_update = "--force" in sys.argv
+    asyncio.run(seed(force=force_update))

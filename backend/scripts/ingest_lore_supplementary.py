@@ -158,52 +158,6 @@ def extract_text_file(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
-def extract_pdf(path: Path) -> str:
-    """
-    Extract text from PDF using pypdf (preferred) or pdfplumber fallback.
-    Returns plain text with page breaks normalized to double newlines.
-    """
-    try:
-        import pypdf
-        reader = pypdf.PdfReader(str(path))
-        pages = []
-        for page in reader.pages:
-            text = page.extract_text() or ""
-            pages.append(text.strip())
-        return "\n\n".join(p for p in pages if p)
-    except ImportError:
-        pass
-
-    try:
-        import pdfplumber
-        pages = []
-        with pdfplumber.open(str(path)) as pdf:
-            for page in pdf.pages:
-                text = page.extract_text() or ""
-                pages.append(text.strip())
-        return "\n\n".join(p for p in pages if p)
-    except ImportError:
-        pass
-
-    raise RuntimeError(
-        f"Cannot extract PDF {path.name} — install pypdf or pdfplumber: "
-        "pip install pypdf --break-system-packages"
-    )
-
-
-def extract_docx(path: Path) -> str:
-    """Extract text from .docx file using python-docx."""
-    try:
-        import docx
-        doc = docx.Document(str(path))
-        return "\n".join(p.text for p in doc.paragraphs if p.text.strip())
-    except ImportError:
-        raise RuntimeError(
-            f"Cannot extract DOCX {path.name} — install python-docx: "
-            "pip install python-docx --break-system-packages"
-        )
-
-
 def extract_text(source: dict) -> str | None:
     """Extract text from a supplementary source based on its format."""
     path = source["path"]
@@ -216,16 +170,12 @@ def extract_text(source: dict) -> str | None:
     try:
         if fmt == "markdown":
             return extract_markdown(path)
-        elif fmt == "text":
+        if fmt == "text":
             return extract_text_file(path)
-        elif fmt == "pdf":
-            return extract_pdf(path)
-        elif fmt == "docx":
-            return extract_docx(path)
-        else:
-            print(f"  ⚠ Unknown format '{fmt}' for {path.name} — skipping")
-            return None
-    except Exception as exc:  # pylint: disable=broad-exception-caught
+
+        print(f"  ⚠ Unsupported format '{fmt}' for {path.name} — skipping")
+        return None
+    except OSError as exc:
         print(f"  ⚠ Extraction failed for {path.name}: {exc}")
         return None
 
@@ -398,6 +348,7 @@ def ingest_source(
 # =============================================================
 
 def main() -> None:
+    """Parse arguments and ingest supplementary lore documents."""
     parser = argparse.ArgumentParser(
         description="Ingest supplementary lore/voice documents into ChromaDB"
     )
@@ -436,17 +387,17 @@ def main() -> None:
 
     try:
         voice_col = client.get_collection(
-            name=VOICE_COLLECTION, embedding_function=embed_fn
+            name=VOICE_COLLECTION, embedding_function=embed_fn  # type: ignore[arg-type]
         )
         lore_col = client.get_collection(
-            name=LORE_COLLECTION, embedding_function=embed_fn
+            name=LORE_COLLECTION, embedding_function=embed_fn  # type: ignore[arg-type]
         )
     except Exception as exc:  # pylint: disable=broad-exception-caught
         print(f"Could not open collections: {exc}")
         print("Run ingest_corpus.py first.")
         sys.exit(1)
 
-    print(f"Collections before ingest:")
+    print("Collections before ingest:")
     print(f"  {VOICE_COLLECTION}: {voice_col.count()} chunks")
     print(f"  {LORE_COLLECTION}: {lore_col.count()} chunks")
     print()
@@ -484,7 +435,7 @@ def main() -> None:
         print(
             f"  Would have ingested: {total_voice} voice chunk(s), {total_lore} lore chunk(s)")
     else:
-        print(f"Collections after ingest:")
+        print("Collections after ingest:")
         print(f"  {VOICE_COLLECTION}: {voice_col.count()} chunks")
         print(f"  {LORE_COLLECTION}: {lore_col.count()} chunks")
         print(f"  New this run: ~{total_voice} voice, ~{total_lore} lore")

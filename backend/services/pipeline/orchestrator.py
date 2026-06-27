@@ -24,6 +24,7 @@ Loop handling:
 import logging
 import os
 
+from collections.abc import Callable
 from backend.services.pipeline import moderation
 from backend.services.pipeline import factual_pass
 from backend.services.pipeline import fact_critique
@@ -111,7 +112,7 @@ def _run_phase_with_retry(
     draft_key: str,
     loop_count_key: str,
     loop_cap: int,
-    notify: callable,
+    notify: Callable[[str], None],
 ) -> dict:
     """
     Batch-cohort retry pattern: run a generation phase, then its critique.
@@ -191,7 +192,7 @@ def _run_phase_with_retry(
 
 def run_pipeline(
     submission: dict,
-    on_stage: callable = None,
+    on_stage: Callable[[str], None] | None = None,
 ) -> dict:
     """
     Run a submission through the full async pipeline.

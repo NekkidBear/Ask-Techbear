@@ -1,20 +1,38 @@
-# =============================================================
-# models.py — SQLAlchemy database models for Ask TechBear
-# Gymnarctos Studios LLC
-# =============================================================
+"""
+models.py — SQLAlchemy database models for Ask TechBear
+Gymnarctos Studios LLC
+
+Defines the core live-event schema:
+    Session
+    Question
+    PresentationVersion
+    SessionContext
+    Blocklist
+"""
+
+# pylint: disable=not-callable
+# E1102 (not-callable): sqlalchemy.sql.func members such as func.now()
+# are dynamically generated SQL function proxies. Pylint cannot determine
+# they are callable at static analysis time.
+
+import uuid
 
 from sqlalchemy import (
-    Column, Integer, String, Text, Boolean,
-    DateTime, ForeignKey
+    Boolean,
+    Column,
+    DateTime,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.sql import func
-import uuid
 
 
 class Base(DeclarativeBase):
-    pass
+    """Base class for all SQLAlchemy ORM models."""
 
 
 class Session(Base):
@@ -43,7 +61,8 @@ class Question(Base):
     __tablename__ = "questions"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("sessions.id"), nullable=False)
+    session_id = Column(UUID(as_uuid=True), ForeignKey(
+        "sessions.id"), nullable=False)
     attendee_name = Column(String(100), nullable=False)
     question_text = Column(Text, nullable=False)
     submitted_at = Column(DateTime(timezone=True), server_default=func.now())
@@ -124,7 +143,8 @@ class SessionContext(Base):
     __tablename__ = "session_context"
 
     id = Column(Integer, primary_key=True, autoincrement=True)
-    session_id = Column(UUID(as_uuid=True), ForeignKey("sessions.id"), nullable=False)
+    session_id = Column(UUID(as_uuid=True), ForeignKey(
+        "sessions.id"), nullable=False)
     question_text = Column(Text, nullable=False)
     # Note: stores the PERFORMED response, not the LLM draft
     # Jason may ad-lib during performance — we capture what was actually said

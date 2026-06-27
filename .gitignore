@@ -46,3 +46,6 @@ review_output/
 *questions_export*.csv
 *pipeline_test_results*.json
 *pipeline_results*.json
+
+# Linting output
+lint_output/
