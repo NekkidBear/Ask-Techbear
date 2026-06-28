@@ -30,6 +30,7 @@ from backend.database import get_db
 from backend.models import Question, Session as EventSession
 from backend.services.llm import generate_techbear_response
 from backend.services.moderation import check_blocklist
+from backend.services.encryption import encrypt_email
 
 router = APIRouter()
 
@@ -43,6 +44,7 @@ class QuestionSubmit(BaseModel):
     attendee_name: str
     question_text: str
     session_id: Optional[str] = None
+    attendee_email: Optional[str] = None   # opt-in for async answer delivery
 
     @field_validator('attendee_name')
     @classmethod
@@ -52,6 +54,22 @@ class QuestionSubmit(BaseModel):
         if not v:
             raise ValueError('Name cannot be empty')
         return v[:100]  # enforce max length
+
+    @field_validator('attendee_email')
+    @classmethod
+    def email_valid(cls, v):
+        """Normalize and lightly validate the email address."""
+        if v is None:
+            return None
+        v = v.strip().lower()
+        if not v:
+            return None
+        # Basic structure check — full RFC validation is overkill here
+        if '@' not in v or '.' not in v.split('@')[-1]:
+            raise ValueError('Invalid email address format')
+        if len(v) > 254:
+            raise ValueError('Email address too long')
+        return v
 
     @field_validator('question_text')
     @classmethod
@@ -147,6 +165,10 @@ async def submit_question(
     question = Question(
         session_id=session.id,
         attendee_name=payload.attendee_name,
+        attendee_email=(
+            encrypt_email(payload.attendee_email)
+            if payload.attendee_email else None
+        ),
         question_text=payload.question_text,
         status="rejected" if is_flagged else "pending",
         moderation_flag=matched_term if is_flagged else None,
@@ -281,7 +303,7 @@ async def generate_draft(
         raise HTTPException(status_code=404, detail="Question not found")
 
     draft = await generate_techbear_response(
-        sanitized_question=question.question_text,
+        sanitized_question=question.question_text,  # pyright: ignore[reportArgumentType]  # SQLAlchemy classic model; deferred to Mapped[] migration (v2.7x)
         rolling_context="",
         rag_context="",
     )

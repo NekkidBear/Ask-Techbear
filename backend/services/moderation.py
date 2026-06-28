@@ -38,7 +38,7 @@ async def check_blocklist(
 
         # Stage 1 — exact substring match, fastest path
         if term_lower in text_lower:
-            return True, entry.term
+            return True, entry.term  # pyright: ignore[reportReturnType]  # SQLAlchemy classic model; deferred to Mapped[] migration (v2.7x)
 
         for word in words:
             # Strip common trailing punctuation so "shit?" or "shit," match
@@ -49,11 +49,11 @@ async def check_blocklist(
             # Length guard prevents short terms from over-matching
             # (e.g. a 2-letter blocked term matching half the dictionary).
             if len(term_lower) >= 3 and cleaned_word.startswith(term_lower):
-                return True, entry.term
+                return True, entry.term  # pyright: ignore[reportReturnType]  # SQLAlchemy classic model; deferred to Mapped[] migration (v2.7x)
 
             # Stage 3 — fuzzy match, catches typos/obfuscation
             if fuzz.ratio(cleaned_word, term_lower) >= threshold:
-                return True, entry.term
+                return True, entry.term  # pyright: ignore[reportReturnType]  # SQLAlchemy classic model; deferred to Mapped[] migration (v2.7x)
 
     return False, None
 

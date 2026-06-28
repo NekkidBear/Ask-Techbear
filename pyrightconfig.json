@@ -3,8 +3,13 @@
   "exclude": [
     "backend/venv",
     "backend/__pycache__",
-    "alembic"
+    "alembic",
+    "**/node_modules",
+    "**/__pycache__",
+    "**/.*"
   ],
   "venvPath": "backend",
-  "venv": "venv"
+  "venv": "venv",
+  "reportAttributeAccessIssue": "none",
+  "reportGeneralTypeIssues": "none"
 }

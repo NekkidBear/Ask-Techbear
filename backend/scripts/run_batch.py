@@ -141,7 +141,7 @@ async def process_question(
     # Persist the result
     run_id = await persist_pipeline_run(
         artifact=artifact,
-        question_id=question.id,
+        question_id=int(question.id),   # type: ignore[arg-type]
         db=db,
         pipeline_version=pipeline_version,
     )

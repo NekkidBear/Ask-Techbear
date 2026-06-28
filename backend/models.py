@@ -64,6 +64,8 @@ class Question(Base):
     session_id = Column(UUID(as_uuid=True), ForeignKey(
         "sessions.id"), nullable=False)
     attendee_name = Column(String(100), nullable=False)
+    # Fernet ciphertext; opt-in PII — exclude from exports
+    attendee_email = Column(Text, nullable=True)
     question_text = Column(Text, nullable=False)
     submitted_at = Column(DateTime(timezone=True), server_default=func.now())
 

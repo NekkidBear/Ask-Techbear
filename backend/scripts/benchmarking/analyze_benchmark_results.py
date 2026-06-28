@@ -82,10 +82,10 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    results_df = load_results(args.file)
-    summary = summarize(results_df)
+    cli_results_df = load_results(args.file)
+    cli_summary = summarize(cli_results_df)
 
-    print(summary)
+    print(cli_summary)
 
-    plot_latency(summary)
-    plot_tokens(summary)
+    plot_latency(cli_summary)
+    plot_tokens(cli_summary)

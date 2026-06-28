@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.database import init_db
 from backend.routers import questions
+from backend.routers import pipeline_review
 
 load_dotenv()
 
@@ -73,6 +74,12 @@ app.add_middleware(
 
 app.include_router(
     questions.router, prefix="/api/questions", tags=["questions"])
+
+app.include_router(
+    pipeline_review.router,
+    prefix="/api/review",
+    tags=["batch-review"],
+)
 
 
 # =============================================================

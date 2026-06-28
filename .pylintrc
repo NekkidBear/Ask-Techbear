@@ -1,5 +1,8 @@
 [MESSAGES CONTROL]
-disable = C0301
+disable = C0301,
+          import-error,
+          too-few-public-methods,
+          duplicate-code
 
 [MASTER]
 ignore-paths = alembic

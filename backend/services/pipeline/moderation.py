@@ -276,6 +276,16 @@ def run(artifact: dict) -> dict:
     flag_reason = classification.get("flag_reason")
     retrieval_mode = classification.get("retrieval_mode", "factual")
 
+    # Lore questions should never be routed to the consultation funnel.
+    # The moderation prompt is allowed to set OFF_TOPIC_FUN, but lore must continue.
+    if retrieval_mode in ("lore", "hybrid", "tall_tale") and decision == "funnel":
+        decision = "pass"
+        classification["decision"] = "pass"
+        classification["scope"] = classification.get("scope") or "OFF_TOPIC_FUN"
+        classification["flag_reason"] = (
+            "Corrected moderation funnel decision for lore-routed question"
+        )
+
     result = {
         **classification,
         "retrieval_mode": retrieval_mode,

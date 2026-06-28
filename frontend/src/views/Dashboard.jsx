@@ -1,70 +1,69 @@
-import { useState, useEffect, useCallback } from 'react'
-import axios from 'axios'
+import { useState, useEffect, useCallback } from "react";
+import axios from "axios";
 // Import the custom avatar component safely!
-import TechbearAvatar from '../components/Techbearavatar'
+import TechbearAvatar from "../components/Techbearavatar";
 
 export default function Dashboard() {
-  const [questions, setQuestions] = useState([])
-  const [selected, setSelected] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState('pending')
-  const [generating, setGenerating] = useState(false)
+  const [questions, setQuestions] = useState([]);
+  const [selected, setSelected] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("pending");
+  const [generating, setGenerating] = useState(false);
 
   const fetchQuestions = useCallback(async () => {
     try {
-      const params = filter !== 'all' ? { status: filter } : {}
-      const res = await axios.get('/api/questions/', { params })
-      setQuestions(res.data)
+      const params = filter !== "all" ? { status: filter } : {};
+      const res = await axios.get("/api/questions/", { params });
+      setQuestions(res.data);
     } catch (err) {
-      console.error('Failed to fetch questions', err)
+      console.error("Failed to fetch questions", err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }, [filter])
+  }, [filter]);
 
   useEffect(() => {
-    fetchQuestions()
+    fetchQuestions();
     // Poll every 5 seconds for new submissions
-    const interval = setInterval(fetchQuestions, 5000)
-    return () => clearInterval(interval)
-  }, [fetchQuestions])
+    const interval = setInterval(fetchQuestions, 5000);
+    return () => clearInterval(interval);
+  }, [fetchQuestions]);
 
   const updateQuestion = async (id, updates) => {
     try {
-      await axios.patch(`/api/questions/${id}`, updates)
-      await fetchQuestions()
+      await axios.patch(`/api/questions/${id}`, updates);
+      await fetchQuestions();
       if (selected?.id === id) {
-        setSelected(prev => ({ ...prev, ...updates }))
+        setSelected((prev) => ({ ...prev, ...updates }));
       }
     } catch (err) {
-      console.error('Failed to update question', err)
+      console.error("Failed to update question", err);
     }
-  }
+  };
 
   const generateDraft = async (id) => {
-    setGenerating(true)
+    setGenerating(true);
     try {
-      const res = await axios.post(`/api/questions/${id}/generate`)
-      setSelected(res.data)
-      await fetchQuestions()
+      const res = await axios.post(`/api/questions/${id}/generate`);
+      setSelected(res.data);
+      await fetchQuestions();
     } catch (err) {
-      console.error('Failed to generate draft', err)
+      console.error("Failed to generate draft", err);
     } finally {
-      setGenerating(false)
+      setGenerating(false);
     }
-  }
+  };
 
   const statusColor = {
-    pending: 'bg-yellow-500',
-    approved: 'bg-blue-500',
-    rejected: 'bg-red-500',
-    answered: 'bg-green-500',
-    highlighted: 'bg-purple-500',
-  }
+    pending: "bg-yellow-500",
+    approved: "bg-blue-500",
+    rejected: "bg-red-500",
+    answered: "bg-green-500",
+    highlighted: "bg-purple-500",
+  };
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex">
-
       {/* ── Sidebar: Queue ── */}
       <div className="w-96 border-r border-gray-700 flex flex-col">
         <div className="p-4 border-b border-gray-700">
@@ -72,16 +71,26 @@ export default function Dashboard() {
             {/* Replaced placeholder emoji with small custom avatar */}
             <TechbearAvatar size="sm" border={false} />
             <span>TechBear Dashboard</span>
+            <a
+              href="/review"
+              className="ml-auto text-xs text-gray-400 hover:text-white border
+                         border-gray-600 hover:border-gray-400 px-2 py-0.5 rounded
+                         transition-colors font-normal"
+            >
+              Batch review
+            </a>
           </h1>
           <div className="flex gap-2 mt-3">
-            {['pending', 'approved', 'all'].map(f => (
+            {["pending", "approved", "all"].map((f) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`text-xs px-3 py-1 rounded-full capitalize transition-colors
-                  ${filter === f
-                    ? 'bg-cyan-500 text-white'
-                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+                  ${
+                    filter === f
+                      ? "bg-cyan-500 text-white"
+                      : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+                  }`}
               >
                 {f}
               </button>
@@ -100,17 +109,19 @@ export default function Dashboard() {
             </p>
           )}
 
-          {questions.map(q => (
+          {questions.map((q) => (
             <button
               key={q.id}
               onClick={() => setSelected(q)}
               className={`w-full text-left p-4 border-b border-gray-800
                 hover:bg-gray-800 transition-colors
-                ${selected?.id === q.id ? 'bg-gray-800' : ''}`}
+                ${selected?.id === q.id ? "bg-gray-800" : ""}`}
             >
               <div className="flex items-center justify-between mb-1">
                 <span className="font-semibold text-sm">{q.attendee_name}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded-full ${statusColor[q.status] || 'bg-gray-600'}`}>
+                <span
+                  className={`text-[10px] px-2 py-0.5 rounded-full ${statusColor[q.status] || "bg-gray-600"}`}
+                >
                   {q.status}
                 </span>
               </div>
@@ -132,12 +143,13 @@ export default function Dashboard() {
 
         {selected && (
           <div className="flex-1 flex flex-col p-6 gap-6 overflow-y-auto">
-
             {/* Question detail */}
             <div className="bg-gray-800 rounded-xl p-5">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="font-bold text-lg">{selected.attendee_name}</h2>
-                <span className={`text-xs px-3 py-1 rounded-full ${statusColor[selected.status] || 'bg-gray-600'}`}>
+                <span
+                  className={`text-xs px-3 py-1 rounded-full ${statusColor[selected.status] || "bg-gray-600"}`}
+                >
                   {selected.status}
                 </span>
               </div>
@@ -161,7 +173,7 @@ export default function Dashboard() {
                              disabled:cursor-not-allowed text-xs px-3 py-1.5
                              rounded-full font-semibold transition-colors"
                 >
-                  {generating ? '🐾 Drafting...' : '🐾 Generate Draft'}
+                  {generating ? "🐾 Drafting..." : "🐾 Generate Draft"}
                 </button>
               </div>
               {selected.llm_draft ? (
@@ -170,7 +182,8 @@ export default function Dashboard() {
                 </p>
               ) : (
                 <p className="text-gray-500 italic">
-                  No draft yet. Click "Generate Draft" to have TechBear take a crack at it.
+                  No draft yet. Click "Generate Draft" to have TechBear take a
+                  crack at it.
                 </p>
               )}
             </div>
@@ -178,36 +191,51 @@ export default function Dashboard() {
             {/* Controls */}
             <div className="flex gap-3">
               <button
-                onClick={() => updateQuestion(selected.id, { status: 'approved' })}
+                onClick={() =>
+                  updateQuestion(selected.id, { status: "approved" })
+                }
                 className="bg-blue-600 hover:bg-blue-500 px-4 py-2 rounded-lg text-sm font-semibold"
               >
                 Approve
               </button>
               <button
-                onClick={() => updateQuestion(selected.id, { status: 'rejected' })}
+                onClick={() =>
+                  updateQuestion(selected.id, { status: "rejected" })
+                }
                 className="bg-red-600 hover:bg-red-500 px-4 py-2 rounded-lg text-sm font-semibold"
               >
                 Reject
               </button>
               <button
-                onClick={() => updateQuestion(selected.id, { status: 'answered', answered_at: new Date().toISOString() })}
+                onClick={() =>
+                  updateQuestion(selected.id, {
+                    status: "answered",
+                    answered_at: new Date().toISOString(),
+                  })
+                }
                 className="bg-green-600 hover:bg-green-500 px-4 py-2 rounded-lg text-sm font-semibold"
               >
                 Mark Answered
               </button>
               <button
-                onClick={() => updateQuestion(selected.id, { highlight: !selected.highlight })}
+                onClick={() =>
+                  updateQuestion(selected.id, {
+                    highlight: !selected.highlight,
+                  })
+                }
                 className={`px-4 py-2 rounded-lg text-sm font-semibold
-                  ${selected.highlight
-                    ? 'bg-purple-600 hover:bg-purple-500'
-                    : 'bg-gray-700 hover:bg-gray-600'}`}
+                  ${
+                    selected.highlight
+                      ? "bg-purple-600 hover:bg-purple-500"
+                      : "bg-gray-700 hover:bg-gray-600"
+                  }`}
               >
-                {selected.highlight ? '★ Highlighted' : '☆ Highlight'}
+                {selected.highlight ? "★ Highlighted" : "☆ Highlight"}
               </button>
             </div>
           </div>
         )}
       </div>
     </div>
-  )
+  );
 }

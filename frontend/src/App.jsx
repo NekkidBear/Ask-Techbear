@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import Submission from './views/Submission'
 import Dashboard from './views/Dashboard'
 import Slideshow from './views/Slideshow'
+import BatchReview from './views/BatchReview'
 
 function App() {
   return (
@@ -12,6 +13,9 @@ function App() {
 
         {/* Moderator dashboard — localhost only */}
         <Route path="/dashboard" element={<Dashboard />} />
+
+        {/* Async pipeline batch review — localhost only */}
+        <Route path="/review" element={<BatchReview />} />
 
         {/* Slideshow display mode */}
         <Route path="/slideshow" element={<Slideshow />} />

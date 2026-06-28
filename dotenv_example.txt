@@ -2,3 +2,25 @@ CLOUDFLARE_TUNNEL_TOKEN= <<insert your token here>>
 DATABASE_URL=postgresql+asyncpg://localhost/ask_techbear
 OLLAMA_BASE_URL=http://localhost:11434
 OLLAMA_MODEL=llama3.2
+
+# =============================================================
+# PII Encryption
+# TODO: Generate ENCRYPTION_KEY before first event or any real data collection.
+#   python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"
+#   - Store the output here as ENCRYPTION_KEY=<value>
+#   - Back up the key separately from the database.
+#     Lost key = email addresses are permanently unrecoverable.
+#   - Never commit this file to git once the key is populated.
+# =============================================================
+ENCRYPTION_KEY=
+
+# =============================================================
+# Email delivery
+# =============================================================
+EMAIL_BACKEND=logging          # logging (default/dev) | smtp (event day)
+# EMAIL_SMTP_HOST=smtp.gmail.com
+# EMAIL_SMTP_PORT=587
+# EMAIL_SMTP_USER=therealtechbeardiva@gmail.com
+# EMAIL_SMTP_PASSWORD=        # App password — not your account password
+# EMAIL_FROM=techbear@gymnarctosstudiosllc.com
+# EMAIL_FROM_NAME=TechBear

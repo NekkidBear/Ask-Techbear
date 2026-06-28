@@ -1,32 +1,34 @@
-import { useState } from 'react'
-import axios from 'axios'
-import TechbearAvatar from '../components/Techbearavatar' // Beautifully imported
+import { useState } from "react";
+import axios from "axios";
+import TechbearAvatar from "../components/Techbearavatar"; // Beautifully imported
 
 export default function Submission() {
-  const [name, setName] = useState('')
-  const [question, setQuestion] = useState('')
-  const [status, setStatus] = useState('idle')
+  const [name, setName] = useState("");
+  const [question, setQuestion] = useState("");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState("idle");
   // idle | submitting | success | error
 
   const handleSubmit = async () => {
-    if (!name.trim() || !question.trim()) return
+    if (!name.trim() || !question.trim()) return;
 
-    setStatus('submitting')
+    setStatus("submitting");
     try {
       // Fixed path: Appended the trailing slash to prevent FastAPI 307 redirects
-      await axios.post('/api/questions/', {
+      await axios.post("/api/questions/", {
         attendee_name: name.trim(),
         question_text: question.trim(),
-      })
-      setStatus('success')
+        attendee_email: email.trim() || null,
+      });
+      setStatus("success");
     } catch (err) {
-      console.error(err)
-      setStatus('error')
+      console.error(err);
+      setStatus("error");
     }
-  }
+  };
 
   // ── Success screen ──────────────────────────────────────────
-  if (status === 'success') {
+  if (status === "success") {
     return (
       <div className="min-h-screen bg-gray-900 flex flex-col items-center justify-center px-6">
         <div className="mb-6">
@@ -36,17 +38,16 @@ export default function Submission() {
           TechBear got your question, sugar!
         </h2>
         <p className="text-gray-400 text-center max-w-sm">
-          Sit tight, darling. Your question is in the queue and
-          TechBear will get to it shortly. 🐾
+          Sit tight, darling. Your question is in the queue and TechBear will
+          get to it shortly. 🐾
         </p>
       </div>
-    )
+    );
   }
 
   // ── Main form ───────────────────────────────────────────────
   return (
     <div className="min-h-screen bg-gray-900 flex flex-col">
-
       {/* Header — messenger-style contact bar */}
       <div className="bg-gray-800 border-b border-gray-700 px-4 py-3 flex items-center gap-3">
         <TechbearAvatar size="sm" border={false} />
@@ -65,9 +66,9 @@ export default function Submission() {
           <TechbearAvatar size="sm" border={false} />
           <div className="bg-gray-700 rounded-2xl rounded-tl-none px-4 py-3">
             <p className="text-white text-sm">
-              Well hello there, sugar! 👋 Got a tech question?
-              Drop it below and TechBear will handle it with
-              all the sass and wisdom you deserve. 🐾
+              Well hello there, sugar! 👋 Got a tech question? Drop it below and
+              TechBear will handle it with all the sass and wisdom you deserve.
+              🐾
             </p>
           </div>
         </div>
@@ -75,25 +76,39 @@ export default function Submission() {
 
       {/* Input area */}
       <div className="bg-gray-800 border-t border-gray-700 px-4 py-4 flex flex-col gap-3">
-
         {/* Name field */}
         <input
           type="text"
           placeholder="Your name, darling..."
           value={name}
-          onChange={e => setName(e.target.value)}
+          onChange={(e) => setName(e.target.value)}
           maxLength={100}
           className="w-full bg-gray-700 text-white placeholder-gray-400
                      rounded-full px-4 py-2 text-sm outline-none
                      focus:ring-2 focus:ring-cyan-500"
         />
 
+        {/* Email field — optional, for async answer delivery */}
+        <input
+          type="email"
+          placeholder="Email for your answer (optional)"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          maxLength={254}
+          className="w-full bg-gray-700 text-white placeholder-gray-400
+                     rounded-full px-4 py-2 text-sm outline-none
+                     focus:ring-2 focus:ring-cyan-500"
+        />
+        <p className="text-gray-500 text-xs px-1 -mt-1">
+          Optional — if TechBear can't answer live, we'll email you instead.
+        </p>
+
         {/* Question field */}
         <div className="flex items-end gap-2">
           <textarea
             placeholder="Ask TechBear anything about tech..."
             value={question}
-            onChange={e => setQuestion(e.target.value)}
+            onChange={(e) => setQuestion(e.target.value)}
             maxLength={500}
             rows={3}
             className="flex-1 bg-gray-700 text-white placeholder-gray-400
@@ -103,16 +118,14 @@ export default function Submission() {
           <button
             onClick={handleSubmit}
             disabled={
-              status === 'submitting' ||
-              !name.trim() ||
-              !question.trim()
+              status === "submitting" || !name.trim() || !question.trim()
             }
             className="bg-cyan-500 hover:bg-cyan-400 disabled:bg-gray-600
                        disabled:cursor-not-allowed text-white rounded-full
                        w-10 h-10 flex items-center justify-center
                        text-lg shrink-0 transition-colors"
           >
-            {status === 'submitting' ? '⏳' : '🐾'}
+            {status === "submitting" ? "⏳" : "🐾"}
           </button>
         </div>
 
@@ -122,12 +135,12 @@ export default function Submission() {
         </p>
 
         {/* Error state */}
-        {status === 'error' && (
+        {status === "error" && (
           <p className="text-red-400 text-xs text-center">
             Honey, something went wrong. Try again in a moment!
           </p>
         )}
       </div>
     </div>
-  )
+  );
 }
