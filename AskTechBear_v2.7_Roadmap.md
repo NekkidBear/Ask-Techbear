@@ -134,3 +134,17 @@ Extract shared logic if appropriate.
 - Lore-aware critique implemented if required
 - Benchmark pipeline remains stable
 - Pre-commit checks pass
+
+Domain-Aware Evaluation
+
+Current state:
+
+- Fact critique assumes real-world truth.
+- Moderation assumes dangerous statements are sincere.
+- Lore is evaluated as factual claims.
+
+Target state:
+
+- factual mode → factual truth
+- corpus mode → published-content fidelity
+- lore mode → canon consistency
