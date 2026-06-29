@@ -37,6 +37,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import requests
 from dotenv import load_dotenv
@@ -60,16 +61,22 @@ except ImportError:
     _PIPELINE_AVAILABLE = False
 
 # ── DB import — optional, graceful fallback ────────────────────────────────
-try:
-    from sqlalchemy import select  # pylint: disable=ungrouped-imports
+# TYPE_CHECKING guard gives Pylance correct types without affecting runtime.
+# The _DB_AVAILABLE flag gates all usage so the except path is never reached
+# when these names are actually called.
+_DB_AVAILABLE = False  # pylint: disable=invalid-name
+if TYPE_CHECKING:
+    from sqlalchemy import select
     from backend.database import get_db_context
     from backend.models_v26 import TestQuestion
-    _DB_AVAILABLE = True
+
+try:
+    from sqlalchemy import select  # pylint: disable=ungrouped-imports  # noqa: F811
+    from backend.database import get_db_context  # noqa: F811  # pylint: disable=ungrouped-imports
+    from backend.models_v26 import TestQuestion  # noqa: F811  # pylint: disable=ungrouped-imports
+    _DB_AVAILABLE = True  # pylint: disable=invalid-name
 except ImportError:
-    select = None  # type: ignore[assignment]
-    get_db_context = None  # type: ignore[assignment]
-    TestQuestion = None  # type: ignore[assignment]
-    _DB_AVAILABLE = False
+    pass
 
 # ── Paths ──────────────────────────────────────────────────────────────────
 ROOT = Path(__file__).resolve().parents[1]
@@ -475,7 +482,7 @@ def _summary_line(r: dict) -> str:
     error_str = ""
     if r.get("pipeline_error"):
         # Trim to the most informative part
-        err = r["pipeline_error"] or ""  # pylint: disable=unsubscriptable-object
+        err = str(r["pipeline_error"] or "")
         error_str = f" | {err[:60]}" if len(err) > 60 else f" | {err}"
 
     return (
@@ -738,9 +745,9 @@ def main() -> None:  # pylint: disable=missing-function-docstring
     )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    timestamp: str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
-    questions_to_run = []
+    questions_to_run: list[tuple[dict, str]] = []
 
     if args.question_id:
         # Build lookup from all available questions across all passes
@@ -796,7 +803,7 @@ def main() -> None:  # pylint: disable=missing-function-docstring
             ) if rd else ""
             print(f"  → {status}{routing}{chunk_info}")
             if r.get("pipeline_error"):
-                print(f"  ⚠ {r['pipeline_error'][:100]}")
+                print(f"  ⚠ {(r['pipeline_error'] or '')[:100]}")
             print()
 
     json_path = OUTPUT_DIR / f"pipeline_test_results_{timestamp}.json"
