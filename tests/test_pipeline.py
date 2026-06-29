@@ -37,7 +37,7 @@ import os
 import sys
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Callable
 
 import requests
 from dotenv import load_dotenv
@@ -65,7 +65,6 @@ except ImportError:
 # The _DB_AVAILABLE flag gates all usage so the except path is never reached
 # when these names are actually called.
 _DB_AVAILABLE = False  # pylint: disable=invalid-name
-
 if TYPE_CHECKING:
     from sqlalchemy import select
     from backend.database import get_db_context
@@ -331,8 +330,27 @@ def score_lore_recall(pipeline_output: str, key_claims: list[str]) -> dict:
 # PIPELINE RUNNER
 # =============================================================================
 
-def _stage_printer(stage: str) -> None:
-    print(f"    → {stage}", flush=True)
+_PHASE_STOP_SENTINEL = "__phase_stop__"
+
+
+class _PhaseStopSignal(Exception):
+    """Raised by the stage callback when the target phase has completed."""
+
+
+def _make_stage_printer(phase_stop: str | None = None) -> Callable[[str], None]:
+    """
+    Returns an on_stage callback. If phase_stop is set, raises _PhaseStopSignal
+    after the named phase fires, halting the pipeline cleanly at that point.
+    """
+    completed: list[str] = []
+
+    def _printer(stage: str) -> None:
+        print(f"    → {stage}", flush=True)
+        if phase_stop and completed and completed[-1] == phase_stop:
+            raise _PhaseStopSignal(f"Stopped after phase: {phase_stop}")
+        completed.append(stage)
+
+    return _printer
 
 
 def run_question(
@@ -340,6 +358,7 @@ def run_question(
     pass_label: str,
     dry_run: bool = False,
     verbose: bool = False,
+    phase_stop: str | None = None,
 ) -> dict:
     """Run one question through the pipeline and collect all results."""
     submission = {
@@ -387,7 +406,13 @@ def run_question(
         return result
 
     try:
-        artifact = _run_pipeline(submission, on_stage=_stage_printer)
+        try:
+            artifact = _run_pipeline(
+                submission, on_stage=_make_stage_printer(phase_stop))
+        except _PhaseStopSignal:
+            # Pipeline halted cleanly at requested phase — treat as partial complete
+            result["pipeline_result"] = f"stopped_after_{phase_stop}"
+            return result
         result["pipeline_result"] = "complete" if artifact.get(
             "passed") else "halted"
         result["pipeline_error"] = artifact.get("failure_reason")
@@ -733,6 +758,18 @@ def main() -> None:  # pylint: disable=missing-function-docstring
         ),
     )
     parser.add_argument(
+        "--phase",
+        dest="phase_stop",
+        default=None,
+        choices=[
+            "moderation", "factual_pass", "fact_critique",
+            "educational_pass", "voice_pass", "semantic_check",
+            "character_critique", "editorial_pass", "editorial_critique",
+            "educational_critique", "handoff",
+        ],
+        help="Stop pipeline after this phase (e.g. --phase moderation)",
+    )
+    parser.add_argument(
         "--summary",
         action="store_true",
         help="One line per question: ID | status | routing | scores | error",
@@ -793,7 +830,8 @@ def main() -> None:  # pylint: disable=missing-function-docstring
         if not args.summary:
             print(
                 f"[{i}/{len(questions_to_run)}] {q['id']} ({p})  {q['question'][:60]}...")
-        r = run_question(q, p, dry_run=args.dry_run, verbose=args.verbose)
+        r = run_question(q, p, dry_run=args.dry_run,
+                         verbose=args.verbose, phase_stop=args.phase_stop)
         results.append(r)
 
         if not args.summary:

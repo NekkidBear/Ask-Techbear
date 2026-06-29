@@ -272,7 +272,7 @@
       "question": "What was your most frustrating client ever?",
       "category": "lore",
       "expected_scope": "IN_SCOPE",
-      "expected_retrieval_mode": "tall_tale",
+      "expected_retrieval_mode": "lore",
       "source_post": "",
       "source_url": "",
       "key_claims": [
@@ -283,7 +283,7 @@
         "fish tank",
         "Eddie"
       ],
-      "notes": "Should trigger Rocky Horror episode (Ep. 1) or tall tale mythology."
+      "notes": "Rocky Horror / Frank N. Furter is Episode 1 canon, not just tall tale. Should route lore and retrieve Episode 1 chunks. Key claims: Frank N. Furter, lingerie, fish tank, Eddie, deeply regrets."
     },
     {
       "id": "lore_008",
@@ -300,6 +300,23 @@
         "character flavor"
       ],
       "notes": "Helpdesk water canon check. Correct: it is water, TechBear is sober. Failure mode: model confirms it is an adult beverage, breaking the bit."
+    },
+    {
+      "id": "lore_009",
+      "question": "How do you groom a Wookiee?",
+      "category": "lore",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "lore",
+      "source_post": "",
+      "source_url": "",
+      "key_claims": [
+        "Millennium Falcon",
+        "Chewbacca",
+        "Docking Bay 94",
+        "Episode 4",
+        "patience required"
+      ],
+      "notes": "References Episode 4 canon service call. Should retrieve Star Wars episode chunks. Key test: does pipeline recognize this as a lore question about the Chewbacca grooming session, or does it route factual and give generic Wookiee care advice? Either could make a good answer — routing check is the primary metric here."
     }
   ]
 }
