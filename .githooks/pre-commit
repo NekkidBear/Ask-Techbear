@@ -5,3 +5,4 @@
 bash .githooks/pre-commit-v2.0-integrity || exit 1
 bash .githooks/pre-commit-v2.5-pipeline || exit 1
 bash .githooks/pre-commit-v2.6-evaluation-reporting || exit 1
+bash .githooks/pre-commit-v2.7-lore-evaluation || exit 1
