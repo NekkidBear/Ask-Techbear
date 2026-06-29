@@ -36,6 +36,7 @@ from backend.services.pipeline import editorial_pass
 from backend.services.pipeline import editorial_critique
 from backend.services.pipeline import educational_critique
 from backend.services.pipeline import handoff
+from backend.services.pipeline.episode_isolation import isolate_episode_chunks
 from backend.services.rag import rag as rag_service
 
 logger = logging.getLogger(__name__)
@@ -68,6 +69,14 @@ def _retrieve(artifact: dict) -> dict:
     Routed RAG retrieval: runs before the generation pipeline.
     Reads retrieval_mode from submission (set by moderation) to route
     to the appropriate collection(s).
+
+    In lore and tall_tale modes, applies episode isolation after retrieval:
+    if a dominant Multiverse episode is present in the retrieved lore chunks,
+    contaminating chunks from other episodes (primarily lore_bible reference
+    chunks covering multiple episodes) are removed before the factual pass
+    sees them. The episode identity is stored in artifact["retrieval"] so
+    factual_pass and fact_critique can evaluate episode relevance.
+
     Non-fatal: pipeline continues with empty context and a flag set.
     """
     question = artifact["submission"].get("question", "")
@@ -75,7 +84,8 @@ def _retrieve(artifact: dict) -> dict:
     print("=" * 72)
     print("DEBUG ORCHESTRATOR._retrieve")
     print("question:", question)
-    print("submission.retrieval_mode:", artifact["submission"].get("retrieval_mode"))
+    print("submission.retrieval_mode:",
+          artifact["submission"].get("retrieval_mode"))
     print("resolved retrieval_mode:", retrieval_mode)
     print("submission keys:", sorted(artifact["submission"].keys()))
     print("=" * 72)
@@ -88,11 +98,19 @@ def _retrieve(artifact: dict) -> dict:
         chunks = {"facts": [], "voice": [], "lore": []}
         artifact.setdefault("flags", {})["retrieval_error"] = str(exc)
 
+    lore_chunks = chunks.get("lore", [])
+
+    # Episode isolation — lore and tall_tale modes only.
+    # For factual/hybrid modes, lore_chunks is empty so isolation is a no-op.
+    # isolate_episode_chunks() always returns safely regardless of input.
+    lore_chunks, episode_context = isolate_episode_chunks(lore_chunks)
+
     artifact["retrieval"] = {
         "facts": chunks.get("facts", []),
         "voice": chunks.get("voice", []),
-        "lore": chunks.get("lore", []),
+        "lore": lore_chunks,
         "retrieval_mode": retrieval_mode,
+        "episode_context": episode_context.to_dict(),
     }
     return artifact
 
@@ -229,7 +247,7 @@ def run_pipeline(
     artifact = moderation.run(artifact)
     _gate("moderation", artifact)
 
-    # ── Retrieval (post-pipeline) ──────────────────────────
+    # ── Retrieval (post-moderation) ────────────────────────
     _notify("retrieval")
     artifact = _retrieve(artifact)
 

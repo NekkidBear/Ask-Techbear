@@ -29,7 +29,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from backend.database import get_db
 from backend.models import Question, Session as EventSession
 from backend.services.llm import generate_techbear_response
-from backend.services.moderation import check_blocklist
+from backend.services.blocklist_service import check_blocklist
 from backend.services.encryption import encrypt_email
 
 router = APIRouter()

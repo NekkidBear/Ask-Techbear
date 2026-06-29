@@ -2,18 +2,39 @@
 # .githooks/pre-commit-v2.6-evaluation-reporting
 #
 # Enforces v2.6 evaluation, reporting, and persistence constraints.
-# Runs alongside v2.0 and v2.5 hooks via pre-commit dispatcher.
+# Runs alongside v2.0, v2.5, and v2.7 hooks via pre-commit dispatcher.
 
 echo "🔍 Running TechBear v2.6 evaluation/reporting integrity checks..."
 
 FAIL=0
 
 # =================================================
+# CACHE: single-pass grep results reused across checks.
+# Avoids multiple full-tree traversals for the same content.
+# =================================================
+
+BACKEND_PY=$(find backend -type f -name "*.py" \
+    ! -path "*/venv/*" ! -path "*/__pycache__/*" 2>/dev/null)
+
+# Cache content of all backend Python files once
+BACKEND_CONTENT=$(cat $BACKEND_PY 2>/dev/null)
+
+# Cache tests + scripts content for lore check
+TESTS_SCRIPTS_CONTENT=$(cat \
+    $(find tests backend/scripts -type f -name "*.py" 2>/dev/null) \
+    2>/dev/null)
+
+# =================================================
 # 1. No generated report artifacts committed
 # =================================================
 
 if find . \
-    \( -path "./.git" -o -path "./backend/venv" -o -path "./venv" \) -prune -o \
+    \( -path "./.git" \
+       -o -path "./backend/venv" \
+       -o -path "*/node_modules" \
+       -o -path "*/lint_output" \
+       -o -path "*/lint_output" \
+       -o -path "./venv" \) -prune -o \
     \( -name "*.xlsx" -o -name "*.xlsm" -o -name "*.docx" -o -name "*.pdf" \) \
     -print | grep -q .; then
     echo "❌ Generated report/workbook artifacts detected (*.xlsx, *.docx, *.pdf)"
@@ -40,25 +61,23 @@ done
 
 # =================================================
 # 3. Evaluation schema models must exist once v2.6 implementation begins.
-#    Allows early roadmap-only commits; enforces once any evaluation
-#    persistence module appears.
+#    Uses cached backend content — no repeated tree traversal.
 # =================================================
 
-if  find backend -type f ! -path "*/venv/*" ! -path "*/__pycache__/*" \
+EVAL_FILES=$(find backend -type f ! -path "*/venv/*" ! -path "*/__pycache__/*" \
     \( -name "*evaluation*.py" -o -name "*review*.py" -o -name "*report*.py" \) \
-    2>/dev/null | grep -q .; then
+    2>/dev/null)
 
-    if ! grep -R "class PipelineRun" backend 2>/dev/null | grep -q .; then
+if [ -n "$EVAL_FILES" ]; then
+    if ! echo "$BACKEND_CONTENT" | grep -q "class PipelineRun"; then
         echo "❌ Evaluation/reporting code exists, but PipelineRun model was not found"
         FAIL=1
     fi
-
-    if ! grep -R "class LLMScore" backend 2>/dev/null | grep -q .; then
+    if ! echo "$BACKEND_CONTENT" | grep -q "class LLMScore"; then
         echo "❌ Evaluation/reporting code exists, but LLMScore model was not found"
         FAIL=1
     fi
-
-    if ! grep -R "class HumanReview" backend 2>/dev/null | grep -q .; then
+    if ! echo "$BACKEND_CONTENT" | grep -q "class HumanReview"; then
         echo "❌ Evaluation/reporting code exists, but HumanReview model was not found"
         FAIL=1
     fi
@@ -66,26 +85,23 @@ fi
 
 # =================================================
 # 4. Pipeline run persistence must not overwrite questions.llm_draft.
-#    v2.6 requires multi-run history, not one-question/one-draft.
 # =================================================
 
-if grep -R "questions\.llm_draft\|Question\.llm_draft" \
-    backend/services/pipeline backend/scripts 2>/dev/null \
-    | grep -v "legacy" | grep -q .; then
-    echo "❌ Pipeline/evaluation code appears to write directly to questions.llm_draft"
-    echo "   v2.6 pipeline outputs should persist through pipeline_runs/artifacts."
-    FAIL=1
+if echo "$BACKEND_CONTENT" | grep -q "questions\.llm_draft\|Question\.llm_draft"; then
+    if ! echo "$BACKEND_CONTENT" | grep "questions\.llm_draft\|Question\.llm_draft" \
+        | grep -q "legacy"; then
+        echo "❌ Pipeline/evaluation code appears to write directly to questions.llm_draft"
+        echo "   v2.6 pipeline outputs should persist through pipeline_runs/artifacts."
+        FAIL=1
+    fi
 fi
 
 # =================================================
 # 5. Human review data must not be stored only in flat files.
-#    Only checks Python source files, not requirements or docs.
-#    XLSX is allowed as export/import, not the source of truth.
 # =================================================
 
-if grep -Rl "to_excel\|openpyxl\|xlsxwriter" backend \
-    --include="*.py" --exclude-dir=venv --exclude-dir=__pycache__ 2>/dev/null | grep -q .; then
-    if ! grep -R "class HumanReview\|human_reviews" backend 2>/dev/null | grep -q .; then
+if echo "$BACKEND_CONTENT" | grep -q "to_excel\|openpyxl\|xlsxwriter"; then
+    if ! echo "$BACKEND_CONTENT" | grep -q "class HumanReview\|human_reviews"; then
         echo "❌ Workbook generation found in Python code, but no human review persistence found"
         echo "   XLSX should be a review export, not the database."
         FAIL=1
@@ -94,13 +110,12 @@ fi
 
 # =================================================
 # 6. Lore/fact separation must be preserved.
-#    Checks only the RAG module, not comments or utility scripts.
-#    Non-blocking warning.
+#    Checks only the RAG module. Non-blocking warning.
 # =================================================
 
 RAG_FILE="backend/services/rag/rag.py"
 if [ -f "$RAG_FILE" ]; then
-    if grep "def retrieve_facts" "$RAG_FILE" | grep -q "def retrieve_facts"; then
+    if grep -q "def retrieve_facts" "$RAG_FILE"; then
         if ! grep -A5 "def retrieve_facts" "$RAG_FILE" | grep -q "is_fiction"; then
             echo "⚠️  retrieve_facts() in rag.py does not appear to filter by is_fiction."
             echo "   Verify the where clause is present. This warning is non-blocking."
@@ -109,12 +124,12 @@ if [ -f "$RAG_FILE" ]; then
 fi
 
 # =================================================
-# 7. Lore recall must be a distinct benchmark category once added
+# 7. Lore recall must be a distinct benchmark category once added.
 # =================================================
 
-if grep -R "Captain Janeway\|Delta Quadrant\|Discworld\|Jurassic Park\|Transylvania" \
-    tests backend/scripts 2>/dev/null | grep -q .; then
-    if ! grep -R "lore\|pass.*[Cc]\|Pass C" tests backend/scripts 2>/dev/null | grep -q .; then
+if echo "$TESTS_SCRIPTS_CONTENT" | grep -q \
+    "Captain Janeway\|Delta Quadrant\|Discworld\|Jurassic Park\|Transylvania"; then
+    if ! echo "$TESTS_SCRIPTS_CONTENT" | grep -q "lore\|pass.*[Cc]\|Pass C"; then
         echo "❌ Lore-related benchmark content found without lore category labeling"
         FAIL=1
     fi
@@ -122,12 +137,12 @@ fi
 
 # =================================================
 # 8. No local database exports or test result files committed.
-#    Excludes known gitignored output directories from the search.
 # =================================================
 
 if find . \
     \( -path "./.git" \
        -o -path "./backend/venv" \
+       -o -path "*/node_modules" \
        -o -path "./venv" \
        -o -path "./tests/test_output" \
        -o -path "./handoff_output" \) -prune -o \
@@ -149,22 +164,25 @@ fi
 if find . -name "*.zip" \
     -not -path "./.git/*" \
     -not -path "./backend/venv/*" \
+    -not -path "*/node_modules/*" \
+    -not -path "*/lint_output/*" \
     -not -path "./venv/*" | grep -q .; then
     echo "❌ zip files detected in repo"
     FAIL=1
 fi
 
 # =================================================
-# 10. Lore collection must remain isolated from factual pipeline.
-#     Fictional canon must never be used as factual evidence.
+# 10. Lore collection must remain isolated from factual critique.
+#     NOTE: v2.7 intentionally uses lore chunks in fact_critique.py
+#     via the lore critique branch. This check looks specifically for
+#     lore chunks being routed to _build_factual_critique_messages.
 # =================================================
 
-if grep -R "techbear_lore" backend 2>/dev/null | grep -q .; then
-    if grep -R "fact_critique\|factual_pass" backend 2>/dev/null \
-        | grep "techbear_lore" \
-        | grep -q .; then
-        echo "❌ Lore collection referenced by factual pipeline phase"
-        echo "   Fictional canon must not be used as factual evidence."
+if echo "$BACKEND_CONTENT" | grep -q "techbear_lore"; then
+    if echo "$BACKEND_CONTENT" | grep "_build_factual_critique_messages" \
+        | grep -q "lore"; then
+        echo "❌ Lore chunks appear to be routed to factual critique prompt"
+        echo "   Fictional canon must only be evaluated by lore critique path."
         FAIL=1
     fi
 fi

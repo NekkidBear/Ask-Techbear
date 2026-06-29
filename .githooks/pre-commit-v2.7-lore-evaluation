@@ -1,0 +1,181 @@
+#!/bin/bash
+# .githooks/pre-commit-v2.7-lore-evaluation
+#
+# Enforces v2.7 lore evaluation architectural constraints.
+# Runs alongside v2.0, v2.5, and v2.6 hooks via pre-commit dispatcher.
+
+echo "🔍 Running TechBear v2.7 lore evaluation integrity checks..."
+
+FAIL=0
+
+# =================================================
+# 1. fact_critique.py must have a lore critique branch.
+#    Prevents regression to single-mode (real-world-only) critique.
+# =================================================
+
+FACT_CRITIQUE="backend/services/pipeline/fact_critique.py"
+if [ -f "$FACT_CRITIQUE" ]; then
+    if ! grep -q "_build_lore_critique_messages" "$FACT_CRITIQUE"; then
+        echo "❌ fact_critique.py is missing _build_lore_critique_messages()"
+        echo "   Lore-aware critique path is required in v2.7."
+        echo "   Regression to single-mode critique blocks lore questions."
+        FAIL=1
+    fi
+fi
+
+# =================================================
+# 2. fact_critique.py must route chunks by retrieval_mode.
+#    The v2.7 root cause was hardcoding retrieval["facts"] regardless
+#    of mode. Ensure the routing branch is present.
+# =================================================
+
+if [ -f "$FACT_CRITIQUE" ]; then
+    if ! grep -q "retrieval_mode.*lore\|lore.*retrieval_mode" "$FACT_CRITIQUE"; then
+        echo "❌ fact_critique.py does not appear to branch on retrieval_mode"
+        echo "   Lore questions must route to lore chunks, not facts chunks."
+        FAIL=1
+    fi
+fi
+
+# =================================================
+# 3. fact_critique.py must have episode relevance checking.
+#    The v2.7 episode isolation fix introduced a second evaluation axis:
+#    not just "is this valid lore?" but "is this the right episode?"
+#    A regression to the pre-episode-context lore critique silently
+#    allows wrong-episode answers to pass fact_critique.
+# =================================================
+
+if [ -f "$FACT_CRITIQUE" ]; then
+    if ! grep -q "_build_episode_critique_block\|episode_context\|wrong_episode" "$FACT_CRITIQUE"; then
+        echo "❌ fact_critique.py is missing episode relevance checking"
+        echo "   Episode context (wrong_episode flag, _build_episode_critique_block)"
+        echo "   is required to catch cross-episode contamination in lore answers."
+        FAIL=1
+    fi
+fi
+
+# =================================================
+# 4. episode_isolation.py must exist.
+#    Core v2.7 module — removes cross-episode contaminating chunks
+#    from lore retrieval results before the factual pass sees them.
+#    Its absence silently breaks lore retrieval quality with no
+#    other obvious failure signal.
+# =================================================
+
+EPISODE_ISOLATION="backend/services/pipeline/episode_isolation.py"
+if [ ! -f "$EPISODE_ISOLATION" ]; then
+    echo "❌ backend/services/pipeline/episode_isolation.py not found"
+    echo "   Episode isolation is required for lore retrieval quality."
+    echo "   Without it, cross-episode contamination (e.g. Voyager details"
+    echo "   appearing in Jurassic Park answers) is not filtered."
+    FAIL=1
+fi
+
+# =================================================
+# 5. orchestrator.py must import episode_isolation.
+#    Verifies the wiring between retrieval and episode isolation
+#    is in place, not just the module file existing.
+# =================================================
+
+ORCHESTRATOR="backend/services/pipeline/orchestrator.py"
+if [ -f "$ORCHESTRATOR" ]; then
+    if ! grep -q "episode_isolation\|isolate_episode_chunks" "$ORCHESTRATOR"; then
+        echo "❌ orchestrator.py does not import or call episode_isolation"
+        echo "   Episode isolation must be called in _retrieve() after"
+        echo "   rag_service.retrieve_for_mode() returns lore chunks."
+        FAIL=1
+    fi
+fi
+
+# =================================================
+# 6. test_questions.json must exist and be valid JSON.
+#    The test harness depends on this file; a missing or corrupt
+#    file silently falls back to emergency stubs.
+# =================================================
+
+QUESTIONS_FILE="tests/test_questions.json"
+if [ ! -f "$QUESTIONS_FILE" ]; then
+    echo "❌ tests/test_questions.json not found"
+    echo "   Test harness question file is required."
+    FAIL=1
+else
+    if ! python3 -c "import json; json.load(open('$QUESTIONS_FILE'))" 2>/dev/null; then
+        echo "❌ tests/test_questions.json is not valid JSON"
+        FAIL=1
+    fi
+fi
+
+# =================================================
+# 7. test_questions.json must contain all three pass labels.
+#    A, B, and C must each be present with at least one question.
+# =================================================
+
+if [ -f "$QUESTIONS_FILE" ]; then
+    for pass_label in A B C; do
+        count=$(python3 -c "
+import json, sys
+data = json.load(open('$QUESTIONS_FILE'))
+qs = data.get('$pass_label', [])
+print(len(qs))
+" 2>/dev/null)
+        if [ -z "$count" ] || [ "$count" -eq 0 ]; then
+            echo "❌ tests/test_questions.json has no questions for Pass $pass_label"
+            FAIL=1
+        fi
+    done
+fi
+
+# =================================================
+# 8. Lore critique prompt must not evaluate against real-world
+#    accuracy standards. Check that the lore critique prompt
+#    explicitly mentions canon consistency (not just accuracy).
+# =================================================
+
+if [ -f "$FACT_CRITIQUE" ]; then
+    if ! grep -q "canon consistency\|canon_contradiction\|fictional" "$FACT_CRITIQUE"; then
+        echo "❌ fact_critique.py lore critique prompt does not reference"
+        echo "   canon consistency or fictional framing."
+        echo "   Lore answers must be evaluated against TechBear canon,"
+        echo "   not real-world accuracy standards."
+        FAIL=1
+    fi
+fi
+
+# =================================================
+# 9. diagnostic_mode must be set in test harness submissions.
+#    Ensures pipeline phases write raw LLM responses to diagnostics
+#    when running under the test harness.
+# =================================================
+
+TEST_HARNESS="tests/test_pipeline.py"
+if [ -f "$TEST_HARNESS" ]; then
+    if ! grep -q "diagnostic_mode.*True" "$TEST_HARNESS"; then
+        echo "❌ test_pipeline.py does not set diagnostic_mode: True in submissions"
+        echo "   Required for moderation and fact_critique raw response capture."
+        FAIL=1
+    fi
+fi
+
+# =================================================
+# 10. tests/test_output/ must be in .gitignore.
+#     Generated test run artifacts must not be committed.
+#     (Mirrors v2.6 check pattern for output directories.)
+# =================================================
+
+if ! grep -qx "tests/test_output/" .gitignore 2>/dev/null; then
+    echo "❌ .gitignore missing: tests/test_output/"
+    FAIL=1
+fi
+
+# =================================================
+# FINAL DECISION
+# =================================================
+
+if [ $FAIL -ne 0 ]; then
+    echo ""
+    echo "🚨 v2.7 lore evaluation integrity check FAILED — commit blocked"
+    exit 1
+fi
+
+echo "✅ v2.7 lore evaluation integrity check passed"
+exit 0

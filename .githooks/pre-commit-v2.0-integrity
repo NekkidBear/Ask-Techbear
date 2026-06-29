@@ -7,7 +7,7 @@ FAIL=0
 # =================================================
 # 1. Pipeline must NOT contain character/system prompt
 # =================================================
-if grep -R "TECHBEAR_SYSTEM" backend/scripts/benchmarking/pipeline.py >/dev/null; then
+if grep -R "TECHBEAR_SYSTEM" tests/benchmarking/model_selection/pipeline.py >/dev/null; then
   echo "❌ pipeline.py still contains TECHBEAR_SYSTEM (must be removed)"
   FAIL=1
 fi
@@ -25,7 +25,7 @@ fi
 # =================================================
 # 3. Benchmark must NOT define system prompts
 # =================================================
-if grep -R "TECHBEAR_SYSTEM" backend/scripts/benchmarking >/dev/null; then
+if grep -R "TECHBEAR_SYSTEM" tests/benchmarking/model_selection >/dev/null; then
   echo "❌ benchmarking contains duplicated system prompt"
   FAIL=1
 fi
@@ -34,7 +34,7 @@ fi
 # =================================================
 # 4. Pipeline must use injected prompt_builder pattern
 # =================================================
-if ! grep -R "prompt_builder" backend/scripts/benchmarking/pipeline.py >/dev/null; then
+if ! grep -R "prompt_builder" tests/benchmarking/model_selection/pipeline.py >/dev/null; then
   echo "❌ pipeline missing prompt_builder injection pattern"
   FAIL=1
 fi
@@ -44,7 +44,7 @@ fi
 # 5. Block direct Ollama generation in benchmark layer
 #    (forces pipeline usage, prevents bypassing eval system)
 # =================================================
-if grep -R "requests.post.*api/generate" backend/scripts/benchmarking >/dev/null; then
+if grep -R "requests.post.*api/generate" tests/benchmarking/model_selection >/dev/null; then
   echo "❌ benchmark bypasses pipeline (direct Ollama call detected)"
   FAIL=1
 fi
@@ -61,7 +61,7 @@ fi
 # =================================================
 # 7. Benchmark results must include 'mode' column
 # =================================================
-if find benchmark_results -name "v2_*.csv" | head -1 | xargs -I{} head -1 {} | grep -qv "mode"; then
+if find tests/benchmarking/results -name "v2_*.csv" | head -1 | xargs -I{} head -1 {} | grep -qv "mode"; then
   echo "❌ benchmark CSV missing 'mode' column (required for analysis)"
   FAIL=1
 fi
