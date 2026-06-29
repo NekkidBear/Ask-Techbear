@@ -270,7 +270,20 @@ def run(artifact: dict) -> dict:
         return artifact
 
     # ── Stage 3: LLM intent + scope classification ─────────
+    diagnostic_mode = submission.get("diagnostic_mode", False)
     classification = _classify_intent(question, submission)
+
+    # Capture raw moderation response for diagnostics when enabled.
+    # _classify_intent returns a dict in all cases (parsed or fallback).
+    # Re-serialize it so the harness can inspect exactly what the LLM returned.
+    if diagnostic_mode:
+        artifact.setdefault("diagnostics", {})["moderation_raw_response"] = (
+            json.dumps(classification)
+        )
+        artifact["diagnostics"]["moderation_parse_succeeded"] = (
+            "llm_classification_failed" not in (
+                classification.get("flag_reason") or "")
+        )
 
     decision = classification.get("decision", "pass")
     flag_reason = classification.get("flag_reason")
@@ -281,7 +294,8 @@ def run(artifact: dict) -> dict:
     if retrieval_mode in ("lore", "hybrid", "tall_tale") and decision == "funnel":
         decision = "pass"
         classification["decision"] = "pass"
-        classification["scope"] = classification.get("scope") or "OFF_TOPIC_FUN"
+        classification["scope"] = classification.get(
+            "scope") or "OFF_TOPIC_FUN"
         classification["flag_reason"] = (
             "Corrected moderation funnel decision for lore-routed question"
         )

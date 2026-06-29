@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ask TechBear v2.6 — Pipeline Test Harness
+Ask TechBear v2.7 — Pipeline Test Harness
 Gymnarctos Studios LLC
 
 Three-pass pipeline evaluation:
@@ -15,7 +15,14 @@ Question sets are loaded from the test_questions database table when available,
 falling back to hardcoded lists if the DB is unavailable.
 
 Run from repo root:
-    python -m tests.test_pipeline [--pass a|b|c|both] [--dry-run] [--question ID]
+    python -m tests.test_pipeline [--pass a|b|c|all] [--dry-run] [--question ID]
+                                  [--verbose] [--summary]
+
+Verbosity:
+    default   — phase scores, draft excerpts (300 chars), similarity scores, errors
+    --summary — one line per question: ID | status | routing | scores | error
+    --verbose — everything: retrieval chunk metadata, raw LLM responses,
+                moderation parse diagnostics; useful for GIGO diagnosis
 
 Output:
     tests/test_output/pipeline_test_results_{timestamp}.json
@@ -25,6 +32,7 @@ Output:
 import argparse
 import asyncio
 import json
+import logging
 import os
 import sys
 from datetime import datetime, timezone
@@ -37,21 +45,30 @@ from requests.exceptions import RequestException
 
 load_dotenv()
 
-# Pipeline import
+# ── Logging ────────────────────────────────────────────────────────────────
+# Configured after argparse so --verbose can set DEBUG level.
+# This surfaces logger.info() / logger.warning() calls in orchestrator.py
+# (retry loop events, loop cap hits) that are otherwise silently swallowed.
+logger = logging.getLogger(__name__)
+
+# ── Pipeline import ────────────────────────────────────────────────────────
 try:
     from backend.services.pipeline.orchestrator import run_pipeline as _run_pipeline
     _PIPELINE_AVAILABLE = True
 except ImportError:
-    _run_pipeline = None
+    _run_pipeline = None  # type: ignore[assignment]
     _PIPELINE_AVAILABLE = False
 
-# DB import — optional, graceful fallback if schema not yet migrated
+# ── DB import — optional, graceful fallback ────────────────────────────────
 try:
-    from sqlalchemy import select
+    from sqlalchemy import select  # pylint: disable=ungrouped-imports
     from backend.database import get_db_context
     from backend.models_v26 import TestQuestion
     _DB_AVAILABLE = True
 except ImportError:
+    select = None  # type: ignore[assignment]
+    get_db_context = None  # type: ignore[assignment]
+    TestQuestion = None  # type: ignore[assignment]
     _DB_AVAILABLE = False
 
 # ── Paths ──────────────────────────────────────────────────────────────────
@@ -63,347 +80,38 @@ SIMILARITY_MODEL = os.getenv("SIMILARITY_MODEL", "mistral:latest")
 
 
 # =============================================================================
-# HARDCODED FALLBACK QUESTION SETS
-# Used when test_questions table is unavailable or empty.
-# Source of truth is the DB — update via seed_test_questions.py.
+# QUESTION FILE LOADER
 # =============================================================================
 
-DB_QUESTIONS = [
-    {
-        "id": "db_001",
-        "question": "What was the most chaotic system you ever had to untangle without completely breaking it?",
-        "category": "tall_tale",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "tall_tale",
-        "notes": (
-            "Should trigger TechBear mythology/lore. Expect vivid storytelling, "
-            "dust bunnies, legendary service calls. NOT about Jason's personal ADHD workflow."
-        ),
-    },
-    {
-        "id": "db_002",
-        "question": "What kind of tech problems make you pause before touching anything?",
-        "category": "observation",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "notes": "Should produce cautious, experienced IT perspective with TechBear voice.",
-    },
-    {
-        "id": "db_003",
-        "question": "What are the earliest signs that a system is becoming unstable?",
-        "category": "observation",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "notes": "Factual + voice. Should mention heat, slowdowns, errors. Check fact accuracy.",
-    },
-    {
-        "id": "db_004",
-        "question": "What does a system under stress look like from your perspective?",
-        "category": "observation",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "notes": "Observational — should blend metaphor with real diagnostics.",
-    },
-    {
-        "id": "db_005",
-        "question": "How do you stay calm when everything feels like it's on fire?",
-        "category": "event",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "notes": "TechBear personality question. Expect warm, performative, practical.",
-    },
-]
+QUESTIONS_FILE = ROOT / "tests" / "test_questions.json"
 
-CORPUS_QUESTIONS = [
-    {
-        "id": "corpus_001",
-        "question": (
-            "My tech guy keeps going on about the importance of regular backups. "
-            "To save money, I've implemented an innovative backup solution for our small business. "
-            "Every Friday, I have each employee email themselves important files with the subject "
-            "line 'MAYBE IMPORTANT?' Then once a month, I ask everyone to forward those emails to me, "
-            "which I save in a special folder called 'Backups I think.' Our efficiency is through the "
-            "roof since we only back up on Fridays! Our cloud storage bill is $0! Am I a genius?"
-        ),
-        "source_post": "Ask The Tech Bear: The Truth About Backups (And 5 Ways to Avoid Catastrophe)",
-        "source_url": "https://gymnarctosstudiosllc.com/2025/03/tech-bear-importance-of-regular-backups/",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "key_claims": [
-            "email is not a backup solution",
-            "3-2-1 backup rule",
-            "human error in manual backup processes",
-            "automated backups are more reliable",
-            "cloud storage backup costs are worth it",
-        ],
-        "notes": "High RAG retrieval expectation — backup article is in corpus.",
-    },
-    {
-        "id": "corpus_002",
-        "question": (
-            "I think I may have cracked the code on modern home wifi networking solutions. "
-            "I attached my router to the ceiling fan so it spins around, covering all parts of "
-            "the house as it rotates. My internet keeps cutting out every few seconds, but I "
-            "think that's probably my ISP's fault."
-        ),
-        "source_post": "Ask TechBear: 4 Recommendations for Home WiFi Network Solutions That Won't Leave You Spinning",
-        "source_url": "https://gymnarctosstudiosllc.com/2025/04/ask-techbear-home-wifi-network-solutions/",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "key_claims": [
-            "rotating router disrupts signal",
-            "router placement matters — central, elevated, stationary",
-            "ISP is not at fault here",
-            "wifi signal needs stable positioning",
-        ],
-        "notes": "Should produce a firm but warm correction with router placement advice.",
-    },
-    {
-        "id": "corpus_003",
-        "question": (
-            "I've streamlined our security for maximum efficiency! Our password is 'password' "
-            "plus the month (e.g., password4), and they're all on sticky notes under the keyboards. "
-            "Nobody has time for complicated passwords! We also use the free antivirus that came "
-            "with the computers — it's free, so it's gotta be good, right? And updates? "
-            "Ain't nobody got time for that! We're too small to be hacked anyway."
-        ),
-        "source_post": "Ask The TechBear: 2 Small Business Cybersecurity Dilemmas, 1 Simple Solution",
-        "source_url": "https://gymnarctosstudiosllc.com/2025/04/tb-small-business-cybersecurity-dilemmas/",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "key_claims": [
-            "predictable passwords are easily cracked",
-            "sticky notes are a physical security risk",
-            "free bundled antivirus is insufficient",
-            "updates patch known vulnerabilities",
-            "small businesses are common targets",
-            "password manager recommendation",
-        ],
-        "notes": "Classic TechBear territory — should produce high character fidelity.",
-    },
-    {
-        "id": "corpus_004",
-        "question": (
-            "I've created the perfect password system, but my former IT guy said these practices "
-            "are a password security failure. All of our company passwords are 'password' followed "
-            "by the current month number. We change them monthly for security! Plus, I've created "
-            "a shared spreadsheet on my company's network drive so everyone can see it. It was a "
-            "hassle having to remember a password to open it, so I just left it in plain text. "
-            "My IT support guy quit last week for unrelated reasons. Before the spreadsheet, "
-            "everyone just wrote their passwords on sticky notes. I think the spreadsheet is a "
-            "security improvement. How impressed should I be with myself?"
-        ),
-        "source_post": "Ask Tech Bear: Password Security Fails — A Cybersecurity Comedy of Errors",
-        "source_url": "https://gymnarctosstudiosllc.com/2025/04/ask-tb-password-security-fails/",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "key_claims": [
-            "predictable password rotation does not improve security",
-            "plain text password storage is dangerous",
-            "shared credentials spreadsheet is a single point of failure",
-            "the IT guy's departure may not be unrelated",
-            "password manager as the correct solution",
-            "multi-factor authentication",
-        ],
-        "notes": "IT guy departure line should be acknowledged with flair.",
-    },
-    {
-        "id": "corpus_005",
-        "question": (
-            "Great news! I've saved a fortune on antivirus software by not using any! "
-            "Not only that, but when I got a ransomware message saying my files were encrypted "
-            "and demanding $500 to get them back, I negotiated them down to $200 and paid. "
-            "Smart business move, right? I think this is a good system."
-        ),
-        "source_post": "Ask TechBear: The Essential Scoop on Viruses and Ransomware Protection",
-        "source_url": "https://gymnarctosstudiosllc.com/2025/04/ask-techbear-ransomware-protection/",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "key_claims": [
-            "paying ransomware is never recommended",
-            "paying marks you as a repeat target",
-            "no guarantee files are restored after payment",
-            "antivirus/endpoint protection is essential",
-            "backups are the correct ransomware defense",
-            "report ransomware to authorities",
-        ],
-        "notes": "Safety-critical. Fact critique should score this carefully.",
-    },
-    {
-        "id": "corpus_006",
-        "question": (
-            "I've solved the battery life problem forever! I keep my phone plugged in 24/7 "
-            "so it's always at 100%. My phone is only 8 months old and the battery is already "
-            "terrible. This must be a defective product."
-        ),
-        "source_post": "Ask TechBear: Battery Life Bootcamp - The Ultimate Guide to Managing Power",
-        "source_url": "https://gymnarctosstudiosllc.com/2025/07/mon-tb-battery-life-management/",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "key_claims": [
-            "keeping battery at 100% degrades lithium-ion cells",
-            "optimal charge range is 20-80%",
-            "heat from constant charging accelerates degradation",
-            "this is not a defective product",
-            "battery calibration and management tips",
-        ],
-        "notes": "Should debunk the myth while validating their frustration.",
-    },
-    {
-        "id": "corpus_007",
-        "question": (
-            "I'm lost in all the apps/services. What are the names and how do I sign up "
-            "for them. Do I need to sign an NDA? or make a deal with the devil?"
-        ),
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "factual",
-        "key_claims": [
-            "password manager recommendation",
-            "two-factor authentication",
-            "no NDA required",
-            "start with one tool at a time",
-            "home router default password",
-        ],
-        "notes": (
-            "Mixed-intent: genuine IN_SCOPE question with embedded OFF_TOPIC_FUN framing. "
-            "Moderation should pass. Voice pass should acknowledge NDA/devil joke once as "
-            "a callback, not let it hijack the answer. Known failure: previous v1 draft "
-            "focused on NDAs and devil deals instead of answering the question."
-        ),
-    },
-]
 
-LORE_QUESTIONS = [
-    {
-        "id": "lore_001",
-        "question": "Have you ever met Captain Janeway?",
-        "category": "lore",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "lore",
-        "key_claims": [
-            "Coffee Crisis in the Delta Quadrant",
-            "replicator malfunction",
-            "Tom Paris was responsible",
-            "Talaxian tomato plant matrices",
-            "70,000 light years from Earth",
-        ],
-        "notes": (
-            "Primary lore calibration case. Score 0 = generic Trek answer. "
-            "Score 5 = Tom Paris, Talaxian tomatoes, replicator config restore."
-        ),
-    },
-    {
-        "id": "lore_002",
-        "question": "What happened in the Delta Quadrant?",
-        "category": "lore",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "lore",
-        "key_claims": [
-            "coffee replicator",
-            "Tom Paris",
-            "Talaxian tomatoes",
-            "Voyager",
-            "interdimensional tech trade",
-        ],
-        "notes": "Follow-up framing of lore_001. Should retrieve same episode.",
-    },
-    {
-        "id": "lore_003",
-        "question": "Did you ever visit Discworld?",
-        "category": "lore",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "lore",
-        "key_claims": [
-            "Unseen University",
-            "HEX",
-            "Archchancellor Ridcully",
-            "existential computing",
-            "thaumic interference",
-            "Magic/More Magic switch",
-        ],
-        "notes": "Episode 8. Should retrieve Discworld/HEX episode specifically.",
-    },
-    {
-        "id": "lore_004",
-        "question": "What was the Jurassic Park incident?",
-        "category": "lore",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "lore",
-        "key_claims": [
-            "Dennis Nedry",
-            "security system",
-            "coffee maker outlet",
-            "biotech startup",
-            "torrential rain",
-        ],
-        "notes": "Episode 2. Kevin archetype — Nedry disabled security for a coffee maker outlet.",
-    },
-    {
-        "id": "lore_005",
-        "question": "Is it true you once debugged NASA?",
-        "category": "tall_tale",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "tall_tale",
-        "key_claims": [
-            "tall tale",
-            "legendary",
-            "origin story",
-            "mythology",
-        ],
-        "notes": (
-            "Tall tale question. Expect vivid invented autobiography. "
-            "Episode 5 (HAL/NASA) is adjacent canon but this asks about the legend."
-        ),
-    },
-    {
-        "id": "lore_006",
-        "question": "How did you fix the Millennium Falcon's hyperdrive?",
-        "category": "lore",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "lore",
-        "key_claims": [
-            "Mos Eisley",
-            "Imperial encryption",
-            "Docking Bay 94",
-            "Chewbacca",
-            "disco era",
-        ],
-        "notes": "Episode 4. Star Wars. Should retrieve specific episode details.",
-    },
-    {
-        "id": "lore_007",
-        "question": "What was your most frustrating client ever?",
-        "category": "lore",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "tall_tale",
-        "key_claims": [
-            "Frank N. Furter",
-            "Rocky Horror",
-            "deeply regrets",
-            "lingerie",
-            "fish tank",
-            "Eddie",
-        ],
-        "notes": "Should trigger Rocky Horror episode (Ep. 1) or tall tale mythology.",
-    },
-    {
-        "id": "lore_008",
-        "question": "What's helpdesk water?",
-        "category": "lore",
-        "expected_scope": "IN_SCOPE",
-        "expected_retrieval_mode": "lore",
-        "key_claims": [
-            "water",
-            "messing with the audience",
-            "sober",
-            "character flavor",
-        ],
-        "notes": (
-            "Helpdesk water canon check. Correct: it's water, TechBear is sober. "
-            "Failure mode: model confirms it is an adult beverage, breaking the bit."
-        ),
-    },
-]
+def _load_question_file() -> dict[str, list[dict]]:
+    """
+    Load question sets from tests/test_questions.json.
+    Returns a dict keyed by pass label: {"A": [...], "B": [...], "C": [...]}.
+    Raises FileNotFoundError with a clear message if the file is missing.
+    """
+    if not QUESTIONS_FILE.exists():
+        raise FileNotFoundError(
+            f"Test question file not found: {QUESTIONS_FILE}\n"
+            "Re-generate it or restore it from version control."
+        )
+    with QUESTIONS_FILE.open(encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+# =============================================================================
+# HARDCODED EMERGENCY FALLBACK
+# Minimal stubs used only if test_questions.json is missing AND the DB is down.
+# Not the source of truth — add/edit questions in tests/test_questions.json.
+# =============================================================================
+
+_EMERGENCY_FALLBACK: dict[str, list[dict]] = {
+    "A": [{"id": "db_001", "question": "What was the most chaotic system you ever had to untangle?", "category": "tall_tale", "expected_scope": "IN_SCOPE", "expected_retrieval_mode": "tall_tale", "key_claims": [], "notes": "Emergency fallback — restore test_questions.json"}],
+    "B": [{"id": "corpus_001", "question": "My tech guy keeps going on about the importance of regular backups. Am I a genius for emailing files to myself?", "category": "corpus", "expected_scope": "IN_SCOPE", "expected_retrieval_mode": "factual", "source_post": "", "source_url": "", "key_claims": ["email is not a backup solution"], "notes": "Emergency fallback — restore test_questions.json"}],
+    "C": [{"id": "lore_001", "question": "Have you ever met Captain Janeway?", "category": "lore", "expected_scope": "IN_SCOPE", "expected_retrieval_mode": "lore", "source_post": "", "source_url": "", "key_claims": ["Coffee Crisis in the Delta Quadrant", "Tom Paris was responsible"], "notes": "Emergency fallback — restore test_questions.json"}],
+}
 
 
 # =============================================================================
@@ -411,10 +119,6 @@ LORE_QUESTIONS = [
 # =============================================================================
 
 async def _load_from_db(pass_label: str) -> list[dict] | None:
-    """
-    Query test_questions for the given pass label.
-    Returns None if unavailable so callers can fall back to hardcoded lists.
-    """
     if not _DB_AVAILABLE:
         return None
     try:
@@ -446,16 +150,39 @@ async def _load_from_db(pass_label: str) -> list[dict] | None:
         return None
 
 
-def load_questions(pass_label: str, fallback: list[dict]) -> list[dict]:
-    """Load from DB if available, fall back to hardcoded list."""
+def load_questions(pass_label: str) -> list[dict]:
+    """
+    Load questions for a pass label using priority order:
+
+    1. DB (test_questions table) — live source when schema is migrated
+    2. tests/test_questions.json — file-based source of truth (version controlled)
+    3. _EMERGENCY_FALLBACK — minimal stubs when both above are unavailable
+    """
+    # 1. Try DB
     db_questions = asyncio.run(_load_from_db(pass_label))
     if db_questions:
         print(
             f"  [Pass {pass_label}] {len(db_questions)} question(s) from database.")
         return db_questions
+
+    # 2. Try JSON file
+    try:
+        all_questions = _load_question_file()
+        file_questions = all_questions.get(pass_label, [])
+        if file_questions:
+            print(
+                f"  [Pass {pass_label}] {len(file_questions)} question(s) "
+                f"from {QUESTIONS_FILE.name}."
+            )
+            return file_questions
+    except FileNotFoundError as exc:
+        print(f"  [Pass {pass_label}] WARNING: {exc}")
+
+    # 3. Emergency fallback
+    fallback = _EMERGENCY_FALLBACK.get(pass_label, [])
     print(
-        f"  [Pass {pass_label}] DB unavailable — "
-        f"using {len(fallback)} hardcoded question(s)."
+        f"  [Pass {pass_label}] WARNING: Using emergency fallback "
+        f"({len(fallback)} stub question(s)). Restore test_questions.json."
     )
     return fallback
 
@@ -526,7 +253,7 @@ Respond with this exact JSON structure:
 }}
 
 overall_score: 10 = all claims present, 0 = none present
-"""
+""",
         },
     ]
 
@@ -556,34 +283,33 @@ def score_lore_recall(pipeline_output: str, key_claims: list[str]) -> dict:
 
     0 = Generic franchise answer (no TechBear-specific details)
     1 = External reference recognized (correct franchise, no canon)
-    2 = TechBear canon referenced (correct episode area)
-    3 = Correct story identified
-    4 = Key lore details retrieved
-    5 = Fresh synthesized answer using canon without verbatim reuse
+    2 = TechBear canon referenced (correct episode area, < 40% claims hit)
+    3 = Correct story identified (>= 40% claims hit)
+    4 = Key lore details retrieved (>= 60% claims hit)
+    5 = Rich canon synthesis (>= 80% claims hit)
     """
     surface = score_surface_similarity(pipeline_output, key_claims)
-    avg = surface["average"]
     claims_hit = surface["claims_above_60"]
     total_claims = len(key_claims)
 
-    if claims_hit == 0:
+    if total_claims == 0 or claims_hit == 0:
         lore_score = 0
-    elif claims_hit == 1:
-        lore_score = 1
-    elif claims_hit / total_claims >= 0.4:
-        lore_score = 2
-    elif claims_hit / total_claims >= 0.6:
-        lore_score = 3
     elif claims_hit / total_claims >= 0.8:
-        lore_score = 4
-    else:
         lore_score = 5
+    elif claims_hit / total_claims >= 0.6:
+        lore_score = 4
+    elif claims_hit / total_claims >= 0.4:
+        lore_score = 3
+    elif claims_hit / total_claims >= 0.2:
+        lore_score = 2
+    else:
+        lore_score = 1  # at least 1 hit but below 20% threshold
 
     return {
         "method": "lore_recall_surface_proxy",
         "lore_score": lore_score,
         "max_score": 5,
-        "surface_avg": avg,
+        "surface_avg": surface["average"],
         "claims_hit": claims_hit,
         "total_claims": total_claims,
         "note": (
@@ -601,7 +327,12 @@ def _stage_printer(stage: str) -> None:
     print(f"    → {stage}", flush=True)
 
 
-def run_question(q: dict, pass_label: str, dry_run: bool = False) -> dict:
+def run_question(
+    q: dict,
+    pass_label: str,
+    dry_run: bool = False,
+    verbose: bool = False,
+) -> dict:
     """Run one question through the pipeline and collect all results."""
     submission = {
         "id": q["id"],
@@ -612,6 +343,7 @@ def run_question(q: dict, pass_label: str, dry_run: bool = False) -> dict:
         "conversation_depth": 0,
         "rolling_context": "",
         "batch_context": [],
+        "diagnostic_mode": True,  # enables raw LLM capture in pipeline phases
     }
 
     result = {
@@ -628,8 +360,12 @@ def run_question(q: dict, pass_label: str, dry_run: bool = False) -> dict:
         "voice_draft": None,
         "factual_draft": None,
         "actual_retrieval_mode": None,
+        "retrieval_diagnostics": {},
         "scores": {},
+        "flags": {},
+        "loop_counts": {},
         "similarity": {},
+        "diagnostics": {},
         "ran_at": datetime.now(timezone.utc).isoformat(),
     }
 
@@ -652,14 +388,30 @@ def run_question(q: dict, pass_label: str, dry_run: bool = False) -> dict:
         result["scores"] = artifact.get("scores", {})
         result["flags"] = artifact.get("flags", {})
         result["loop_counts"] = artifact.get("loop_counts", {})
+        result["diagnostics"] = artifact.get("diagnostics", {})
 
-        # Capture actual retrieval mode for routing validation
+        # Retrieval diagnostics — always captured, full chunks only in verbose JSON
+        retrieval = artifact.get("retrieval", {})
+        facts_chunks = retrieval.get("facts", [])
+        voice_chunks = retrieval.get("voice", [])
+        lore_chunks = retrieval.get("lore", [])
+        result["retrieval_diagnostics"] = {
+            "retrieval_mode": retrieval.get("retrieval_mode"),
+            "facts_count": len(facts_chunks),
+            "voice_count": len(voice_chunks),
+            "lore_count": len(lore_chunks),
+            "retrieval_error": artifact.get("flags", {}).get("retrieval_error"),
+            # Full chunk data included — use --verbose in summary to display it
+            "facts_chunks": facts_chunks if verbose else [],
+            "lore_chunks": lore_chunks if verbose else [],
+            "voice_chunks": voice_chunks if verbose else [],
+        }
+
+        # Routing validation
         result["actual_retrieval_mode"] = (
-            artifact.get("retrieval", {}).get("retrieval_mode")
+            retrieval.get("retrieval_mode")
             or artifact.get("scores", {}).get("moderation", {}).get("retrieval_mode")
         )
-
-        # Routing check — flag if moderation routed differently than expected
         if (
             result["expected_retrieval_mode"]
             and result["actual_retrieval_mode"]
@@ -694,13 +446,47 @@ def run_question(q: dict, pass_label: str, dry_run: bool = False) -> dict:
 
 
 # =============================================================================
-# SUMMARY WRITER
+# SUMMARY WRITERS
 # =============================================================================
 
-def write_summary(results: list[dict], output_path: Path) -> None:
-    """Write a human-readable summary of pipeline test results."""
+def _summary_line(r: dict) -> str:
+    """One-line summary for --summary mode."""
+    status = r.get("pipeline_result", "?")
+    routing = r.get("actual_retrieval_mode", "?")
+    expected = r.get("expected_retrieval_mode", "")
+    routing_flag = f"⚠{expected}→{routing}" if r.get(
+        "routing_mismatch") else routing
+
+    scores = r.get("scores", {})
+    fc = scores.get("fact_critique", {})
+    cc = scores.get("character_critique", {})
+
+    score_parts = []
+    if fc.get("accuracy_score") is not None:
+        score_parts.append(f"acc={fc['accuracy_score']}")
+    if cc.get("character_fidelity_score") is not None:
+        score_parts.append(f"fid={cc['character_fidelity_score']}")
+    if r.get("similarity", {}).get("lore_recall"):
+        lr = r["similarity"]["lore_recall"]
+        score_parts.append(f"lore={lr['lore_score']}/5")
+
+    score_str = " ".join(score_parts) if score_parts else "—"
+
+    error_str = ""
+    if r.get("pipeline_error"):
+        # Trim to the most informative part
+        err = r["pipeline_error"] or ""  # pylint: disable=unsubscriptable-object
+        error_str = f" | {err[:60]}" if len(err) > 60 else f" | {err}"
+
+    return (
+        f"{r['id']:<12} {status:<10} {routing_flag:<14} {score_str}{error_str}"
+    )
+
+
+def write_summary(results: list[dict], output_path: Path, verbose: bool = False) -> None:
+    """Write human-readable summary. Respects verbose flag for extra detail."""
     lines = [
-        "Ask TechBear v2.6 — Pipeline Test Summary",
+        "Ask TechBear v2.7 — Pipeline Test Summary",
         f"Generated: {datetime.now(timezone.utc).isoformat()}",
         "=" * 60,
         "",
@@ -714,19 +500,58 @@ def write_summary(results: list[dict], output_path: Path) -> None:
             lines.append(f"  Source: {r['source_post'][:65]}")
         lines.append(f"  Q: {r['question'][:100]}...")
 
-        # Routing mismatch warning
         if r.get("routing_mismatch"):
             lines.append(f"  ⚠ ROUTING MISMATCH: {r['routing_mismatch']}")
+
+        # Retrieval diagnostics — always show counts
+        rd = r.get("retrieval_diagnostics", {})
+        if rd:
+            mode = rd.get("retrieval_mode", "?")
+            counts = (
+                f"facts={rd.get('facts_count', 0)} "
+                f"lore={rd.get('lore_count', 0)} "
+                f"voice={rd.get('voice_count', 0)}"
+            )
+            lines.append(f"  Retrieval: mode={mode} | {counts}")
+            if rd.get("retrieval_error"):
+                lines.append(f"  ⚠ Retrieval error: {rd['retrieval_error']}")
+
+            if verbose and rd.get("lore_chunks"):
+                lines.append("  Lore chunks retrieved:")
+                for i, chunk in enumerate(rd["lore_chunks"], 1):
+                    meta = chunk.get("meta", {})
+                    lines.append(
+                        f"    [{i}] tier={meta.get('lore_tier', '?')} "
+                        f"src={meta.get('source', '?')[:50]}"
+                    )
+                    lines.append(f"        {chunk.get('text', '')[:120]}...")
 
         if r.get("pipeline_error"):
             lines.append(f"  ERROR: {r.get('pipeline_error')}")
 
+        # Moderation diagnostics in verbose mode
+        if verbose:
+            diag = r.get("diagnostics", {})
+            if diag.get("moderation_raw_response"):
+                parse_ok = diag.get("moderation_parse_succeeded", "?")
+                lines.append(f"  Moderation parse succeeded: {parse_ok}")
+                lines.append(
+                    f"  Moderation raw response: {diag['moderation_raw_response'][:300]}"
+                )
+            if diag.get("fact_critique_raw_response"):
+                fc_parse = diag.get("fact_critique_parse_succeeded", "?")
+                lines.append(f"  Fact critique parse succeeded: {fc_parse}")
+                if not fc_parse:
+                    lines.append(
+                        f"  Fact critique raw: {diag['fact_critique_raw_response'][:300]}"
+                    )
+
         if r.get("voice_draft"):
             lines.append(
                 f"  Voice draft ({len(r['voice_draft'].split())} words):")
-            lines.append(f"    {r['voice_draft'][:300]}...")
+            excerpt_len = 600 if verbose else 300
+            lines.append(f"    {r['voice_draft'][:excerpt_len]}...")
 
-        # Loop counts
         lc = r.get("loop_counts", {})
         if lc:
             lines.append(
@@ -741,6 +566,9 @@ def write_summary(results: list[dict], output_path: Path) -> None:
                 f"claims≥60: {s['claims_above_60']}/{len(s['per_claim'])} | "
                 f"claims≥80: {s['claims_above_80']}/{len(s['per_claim'])}"
             )
+            if verbose:
+                for cp in s["per_claim"]:
+                    lines.append(f"    {cp['score']:3d}  {cp['claim']}")
         if sim.get("semantic") and sim["semantic"].get("overall_score") is not None:
             lines.append(
                 f"  Semantic similarity: {sim['semantic']['overall_score']}/10 — "
@@ -758,7 +586,9 @@ def write_summary(results: list[dict], output_path: Path) -> None:
             fc = scores["fact_critique"]
             lines.append(
                 f"  Fact critique: accuracy={fc.get('accuracy_score')} "
-                f"safety={fc.get('safety_score')} rec={fc.get('pass_recommendation')}"
+                f"safety={fc.get('safety_score')} "
+                f"rec={fc.get('pass_recommendation')} "
+                f"[{fc.get('critique_mode', 'factual')} mode]"
             )
         if scores.get("character_critique"):
             cc = scores["character_critique"]
@@ -766,16 +596,6 @@ def write_summary(results: list[dict], output_path: Path) -> None:
                 f"  Character critique: fidelity={cc.get('character_fidelity_score')} "
                 f"anti_formulaic={cc.get('anti_formulaic_score')} "
                 f"words={cc.get('word_count')}"
-            )
-        if scores.get("educational_critique"):
-            ec = scores["educational_critique"]
-            lines.append(
-                f"  Educational critique: "
-                f"comprehension={ec.get('comprehension_confidence')} "
-                f"concept={ec.get('concept_clarity')} "
-                f"analogy={ec.get('analogy_quality')} "
-                f"action={ec.get('action_clarity')} "
-                f"transfer={ec.get('transfer_potential')}"
             )
         if scores.get("editorial_critique"):
             ec = scores["editorial_critique"]
@@ -801,24 +621,35 @@ def write_summary(results: list[dict], output_path: Path) -> None:
     if routing_mismatches:
         lines.append(f"Routing mismatches: {routing_mismatches}")
 
+    # Retrieval summary
+    lore_zero = [
+        r for r in results
+        if r.get("retrieval_diagnostics", {}).get("lore_count", 0) == 0
+        and r.get("category") in ("lore", "tall_tale")
+    ]
+    if lore_zero:
+        ids = ", ".join(r["id"] for r in lore_zero)
+        lines.append(f"Lore questions with zero lore chunks: {ids}")
+
     # Pass B similarity
     b_results = [r for r in results if r["pass"]
                  == "B" and r.get("similarity")]
     if b_results:
-        avg_surface = sum(
+        surface_scores = [
             r["similarity"]["surface"]["average"]
             for r in b_results if r["similarity"].get("surface")
-        ) / len(b_results)
+        ]
         sem_scores = [
             r["similarity"]["semantic"]["overall_score"]
             for r in b_results
             if r["similarity"].get("semantic", {}).get("overall_score") is not None
         ]
-        lines.append(f"Pass B avg surface similarity: {round(avg_surface, 1)}")
+        if surface_scores:
+            lines.append(
+                f"Pass B avg surface similarity: {round(sum(surface_scores)/len(surface_scores), 1)}")
         if sem_scores:
             lines.append(
-                f"Pass B avg semantic similarity: {round(sum(sem_scores)/len(sem_scores), 1)}/10"
-            )
+                f"Pass B avg semantic similarity: {round(sum(sem_scores)/len(sem_scores), 1)}/10")
 
     # Pass C lore recall
     c_results = [
@@ -834,20 +665,45 @@ def write_summary(results: list[dict], output_path: Path) -> None:
     output_path.write_text("\n".join(lines), encoding="utf-8")
 
 
+def write_summary_oneline(results: list[dict], output_path: Path) -> None:
+    """--summary mode: one line per question to stdout + summary file."""
+    header = f"{'ID':<12} {'STATUS':<10} {'ROUTING':<14} SCORES / ERROR"
+    lines = [
+        "Ask TechBear v2.7 — Pipeline Test Summary (one-line)",
+        f"Generated: {datetime.now(timezone.utc).isoformat()}",
+        "=" * 72,
+        header,
+        "-" * 72,
+    ]
+    for r in results:
+        lines.append(_summary_line(r))
+    lines.append("=" * 72)
+
+    total = len(results)
+    complete = sum(1 for r in results if r["pipeline_result"] == "complete")
+    errors = total - complete
+    lines.append(
+        f"Total: {total}  Complete: {complete}  Errors/Halted: {errors}")
+
+    text = "\n".join(lines)
+    print(text)
+    output_path.write_text(text, encoding="utf-8")
+
+
 # =============================================================================
 # ENTRY POINT
 # =============================================================================
 
-def main() -> None:
+def main() -> None:  # pylint: disable=missing-function-docstring
     parser = argparse.ArgumentParser(
-        description="Ask TechBear v2.6 pipeline test harness"
+        description="Ask TechBear v2.7 pipeline test harness"
     )
     parser.add_argument(
         "--pass",
         dest="run_pass",
-        choices=["a", "b", "c", "both"],
-        default="both",
-        help="Which pass to run: a (DB/lore), b (corpus), c (lore recall), both",
+        choices=["a", "b", "c", "all"],
+        default="all",
+        help="Which pass to run: a (DB/event), b (corpus), c (lore recall), all",
     )
     parser.add_argument(
         "--dry-run",
@@ -860,7 +716,26 @@ def main() -> None:
         default=None,
         help="Run a single question by ID (e.g. db_003, corpus_002, lore_001)",
     )
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help=(
+            "Full output: retrieval chunk metadata, raw LLM responses, "
+            "moderation parse diagnostics, per-claim similarity scores"
+        ),
+    )
+    parser.add_argument(
+        "--summary",
+        action="store_true",
+        help="One line per question: ID | status | routing | scores | error",
+    )
     args = parser.parse_args()
+
+    # Configure logging — DEBUG surfaced only with --verbose
+    logging.basicConfig(
+        level=logging.DEBUG if args.verbose else logging.WARNING,
+        format="%(name)s %(levelname)s %(message)s",
+    )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -868,9 +743,16 @@ def main() -> None:
     questions_to_run = []
 
     if args.question_id:
-        all_q = {q["id"]: (q, "A") for q in DB_QUESTIONS}
-        all_q.update({q["id"]: (q, "B") for q in CORPUS_QUESTIONS})
-        all_q.update({q["id"]: (q, "C") for q in LORE_QUESTIONS})
+        # Build lookup from all available questions across all passes
+        _all_loaded = {
+            "A": load_questions("A"),
+            "B": load_questions("B"),
+            "C": load_questions("C"),
+        }
+        all_q = {}
+        for _pass_label, _qs in _all_loaded.items():
+            for _q in _qs:
+                all_q[_q["id"]] = (_q, _pass_label)
         if args.question_id not in all_q:
             print(f"Unknown question ID: {args.question_id}")
             print(f"Available: {list(all_q.keys())}")
@@ -878,48 +760,58 @@ def main() -> None:
         q, p = all_q[args.question_id]
         questions_to_run = [(q, p)]
     else:
-        if args.run_pass in ("a", "both"):
-            questions_to_run += [
-                (q, "A") for q in load_questions("A", DB_QUESTIONS)
-            ]
-        if args.run_pass in ("b", "both"):
-            questions_to_run += [
-                (q, "B") for q in load_questions("B", CORPUS_QUESTIONS)
-            ]
-        if args.run_pass in ("c", "both"):
-            questions_to_run += [
-                (q, "C") for q in load_questions("C", LORE_QUESTIONS)
-            ]
+        if args.run_pass in ("a", "all"):
+            questions_to_run += [(q, "A") for q in load_questions("A")]
+        if args.run_pass in ("b", "all"):
+            questions_to_run += [(q, "B") for q in load_questions("B")]
+        if args.run_pass in ("c", "all"):
+            questions_to_run += [(q, "C") for q in load_questions("C")]
 
-    print(
-        f"Running {len(questions_to_run)} question(s) "
-        f"{'[DRY RUN]' if args.dry_run else ''}..."
-    )
-    print()
+    if not args.summary:
+        print(
+            f"Running {len(questions_to_run)} question(s) "
+            f"{'[DRY RUN] ' if args.dry_run else ''}"
+            f"{'[VERBOSE] ' if args.verbose else ''}"
+            f"..."
+        )
+        print()
 
     results = []
     for i, (q, p) in enumerate(questions_to_run, 1):
-        print(
-            f"[{i}/{len(questions_to_run)}] {q['id']} ({p})  {q['question'][:60]}...")
-        r = run_question(q, p, dry_run=args.dry_run)
+        if not args.summary:
+            print(
+                f"[{i}/{len(questions_to_run)}] {q['id']} ({p})  {q['question'][:60]}...")
+        r = run_question(q, p, dry_run=args.dry_run, verbose=args.verbose)
         results.append(r)
-        status = r["pipeline_result"]
-        routing = f" ⚠ routing={r['routing_mismatch']}" if r.get(
-            "routing_mismatch") else ""
-        print(f"  → {status}{routing}")
-        if r.get("pipeline_error"):
-            print(f"  ⚠ {r['pipeline_error'][:80]}")
-        print()
+
+        if not args.summary:
+            status = r["pipeline_result"]
+            routing = f" ⚠ routing={r['routing_mismatch']}" if r.get(
+                "routing_mismatch") else ""
+            rd = r.get("retrieval_diagnostics", {})
+            chunk_info = (
+                f" [facts={rd.get('facts_count', 0)} "
+                f"lore={rd.get('lore_count', 0)} "
+                f"voice={rd.get('voice_count', 0)}]"
+            ) if rd else ""
+            print(f"  → {status}{routing}{chunk_info}")
+            if r.get("pipeline_error"):
+                print(f"  ⚠ {r['pipeline_error'][:100]}")
+            print()
 
     json_path = OUTPUT_DIR / f"pipeline_test_results_{timestamp}.json"
     summary_path = OUTPUT_DIR / f"pipeline_test_summary_{timestamp}.txt"
 
+    # Always write full JSON (chunk data included if verbose)
     json_path.write_text(json.dumps(
         results, indent=2, ensure_ascii=False), encoding="utf-8")
-    write_summary(results, summary_path)
 
-    print(f"Results: {json_path}")
-    print(f"Summary: {summary_path}")
+    if args.summary:
+        write_summary_oneline(results, summary_path)
+    else:
+        write_summary(results, summary_path, verbose=args.verbose)
+        print(f"Results: {json_path}")
+        print(f"Summary: {summary_path}")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,305 @@
+{
+  "A": [
+    {
+      "id": "db_001",
+      "question": "What was the most chaotic system you ever had to untangle without completely breaking it?",
+      "category": "tall_tale",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "tall_tale",
+      "key_claims": [],
+      "notes": "Should trigger TechBear mythology/lore. Expect vivid storytelling, dust bunnies, legendary service calls. NOT about Jason's personal ADHD workflow."
+    },
+    {
+      "id": "db_002",
+      "question": "What kind of tech problems make you pause before touching anything?",
+      "category": "observation",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "key_claims": [],
+      "notes": "Should produce cautious, experienced IT perspective with TechBear voice."
+    },
+    {
+      "id": "db_003",
+      "question": "What are the earliest signs that a system is becoming unstable?",
+      "category": "observation",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "key_claims": [],
+      "notes": "Factual + voice. Should mention heat, slowdowns, errors. Check fact accuracy."
+    },
+    {
+      "id": "db_004",
+      "question": "What does a system under stress look like from your perspective?",
+      "category": "observation",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "key_claims": [],
+      "notes": "Observational — should blend metaphor with real diagnostics."
+    },
+    {
+      "id": "db_005",
+      "question": "How do you stay calm when everything feels like it's on fire?",
+      "category": "event",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "key_claims": [],
+      "notes": "TechBear personality question. Expect warm, performative, practical."
+    }
+  ],
+  "B": [
+    {
+      "id": "corpus_001",
+      "question": "My tech guy keeps going on about the importance of regular backups. To save money, I've implemented an innovative backup solution for our small business. Every Friday, I have each employee email themselves important files with the subject line 'MAYBE IMPORTANT?' Then once a month, I ask everyone to forward those emails to me, which I save in a special folder called 'Backups I think.' Our efficiency is through the roof since we only back up on Fridays! Our cloud storage bill is $0! Am I a genius?",
+      "category": "corpus",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "source_post": "Ask The Tech Bear: The Truth About Backups (And 5 Ways to Avoid Catastrophe)",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/03/tech-bear-importance-of-regular-backups/",
+      "key_claims": [
+        "email is not a backup solution",
+        "3-2-1 backup rule",
+        "human error in manual backup processes",
+        "automated backups are more reliable",
+        "cloud storage backup costs are worth it"
+      ],
+      "notes": "High RAG retrieval expectation — backup article is in corpus."
+    },
+    {
+      "id": "corpus_002",
+      "question": "I think I may have cracked the code on modern home wifi networking solutions. I attached my router to the ceiling fan so it spins around, covering all parts of the house as it rotates. My internet keeps cutting out every few seconds, but I think that's probably my ISP's fault.",
+      "category": "corpus",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "source_post": "Ask TechBear: 4 Recommendations for Home WiFi Network Solutions That Won't Leave You Spinning",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/04/ask-techbear-home-wifi-network-solutions/",
+      "key_claims": [
+        "rotating router disrupts signal",
+        "router placement matters — central, elevated, stationary",
+        "ISP is not at fault here",
+        "wifi signal needs stable positioning"
+      ],
+      "notes": "Should produce a firm but warm correction with router placement advice."
+    },
+    {
+      "id": "corpus_003",
+      "question": "I've streamlined our security for maximum efficiency! Our password is 'password' plus the month (e.g., password4), and they're all on sticky notes under the keyboards. Nobody has time for complicated passwords! We also use the free antivirus that came with the computers — it's free, so it's gotta be good, right? And updates? Ain't nobody got time for that! We're too small to be hacked anyway.",
+      "category": "corpus",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "source_post": "Ask The TechBear: 2 Small Business Cybersecurity Dilemmas, 1 Simple Solution",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/04/tb-small-business-cybersecurity-dilemmas/",
+      "key_claims": [
+        "predictable passwords are easily cracked",
+        "sticky notes are a physical security risk",
+        "free bundled antivirus is insufficient",
+        "updates patch known vulnerabilities",
+        "small businesses are common targets",
+        "password manager recommendation"
+      ],
+      "notes": "Classic TechBear territory — should produce high character fidelity."
+    },
+    {
+      "id": "corpus_004",
+      "question": "I've created the perfect password system, but my former IT guy said these practices are a password security failure. All of our company passwords are 'password' followed by the current month number. We change them monthly for security! Plus, I've created a shared spreadsheet on my company's network drive so everyone can see it. It was a hassle having to remember a password to open it, so I just left it in plain text. My IT support guy quit last week for unrelated reasons. Before the spreadsheet, everyone just wrote their passwords on sticky notes. I think the spreadsheet is a security improvement. How impressed should I be with myself?",
+      "category": "corpus",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "source_post": "Ask Tech Bear: Password Security Fails — A Cybersecurity Comedy of Errors",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/04/ask-tb-password-security-fails/",
+      "key_claims": [
+        "predictable password rotation does not improve security",
+        "plain text password storage is dangerous",
+        "shared credentials spreadsheet is a single point of failure",
+        "the IT guy's departure may not be unrelated",
+        "password manager as the correct solution",
+        "multi-factor authentication"
+      ],
+      "notes": "IT guy departure line should be acknowledged with flair."
+    },
+    {
+      "id": "corpus_005",
+      "question": "Great news! I've saved a fortune on antivirus software by not using any! Not only that, but when I got a ransomware message saying my files were encrypted and demanding $500 to get them back, I negotiated them down to $200 and paid. Smart business move, right? I think this is a good system.",
+      "category": "corpus",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "source_post": "Ask TechBear: The Essential Scoop on Viruses and Ransomware Protection",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/04/ask-techbear-ransomware-protection/",
+      "key_claims": [
+        "paying ransomware is never recommended",
+        "paying marks you as a repeat target",
+        "no guarantee files are restored after payment",
+        "antivirus/endpoint protection is essential",
+        "backups are the correct ransomware defense",
+        "report ransomware to authorities"
+      ],
+      "notes": "Safety-critical. Fact critique should score this carefully."
+    },
+    {
+      "id": "corpus_006",
+      "question": "I've solved the battery life problem forever! I keep my phone plugged in 24/7 so it's always at 100%. My phone is only 8 months old and the battery is already terrible. This must be a defective product.",
+      "category": "corpus",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "source_post": "Ask TechBear: Battery Life Bootcamp - The Ultimate Guide to Managing Power",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/07/mon-tb-battery-life-management/",
+      "key_claims": [
+        "keeping battery at 100% degrades lithium-ion cells",
+        "optimal charge range is 20-80%",
+        "heat from constant charging accelerates degradation",
+        "this is not a defective product",
+        "battery calibration and management tips"
+      ],
+      "notes": "Should debunk the myth while validating their frustration."
+    },
+    {
+      "id": "corpus_007",
+      "question": "I'm lost in all the apps/services. What are the names and how do I sign up for them. Do I need to sign an NDA? or make a deal with the devil?",
+      "category": "corpus",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "factual",
+      "source_post": "",
+      "source_url": "",
+      "key_claims": [
+        "password manager recommendation",
+        "two-factor authentication",
+        "no NDA required",
+        "start with one tool at a time",
+        "home router default password"
+      ],
+      "notes": "Mixed-intent: genuine IN_SCOPE question with embedded OFF_TOPIC_FUN framing. Moderation should pass. Voice pass should acknowledge NDA/devil joke once as a callback, not let it hijack the answer."
+    }
+  ],
+  "C": [
+    {
+      "id": "lore_001",
+      "question": "Have you ever met Captain Janeway?",
+      "category": "lore",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "lore",
+      "source_post": "",
+      "source_url": "",
+      "key_claims": [
+        "Coffee Crisis in the Delta Quadrant",
+        "replicator malfunction",
+        "Tom Paris was responsible",
+        "Talaxian tomato plant matrices",
+        "70,000 light years from Earth"
+      ],
+      "notes": "Primary lore calibration case. Score 0 = generic Trek answer. Score 5 = Tom Paris, Talaxian tomatoes, replicator config restore."
+    },
+    {
+      "id": "lore_002",
+      "question": "What happened in the Delta Quadrant?",
+      "category": "lore",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "lore",
+      "source_post": "",
+      "source_url": "",
+      "key_claims": [
+        "coffee replicator",
+        "Tom Paris",
+        "Talaxian tomatoes",
+        "Voyager",
+        "interdimensional tech trade"
+      ],
+      "notes": "Follow-up framing of lore_001. Should retrieve same episode."
+    },
+    {
+      "id": "lore_003",
+      "question": "Did you ever visit Discworld?",
+      "category": "lore",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "lore",
+      "source_post": "",
+      "source_url": "",
+      "key_claims": [
+        "Unseen University",
+        "HEX",
+        "Archchancellor Ridcully",
+        "existential computing",
+        "thaumic interference",
+        "Magic/More Magic switch"
+      ],
+      "notes": "Episode 8. Should retrieve Discworld/HEX episode specifically."
+    },
+    {
+      "id": "lore_004",
+      "question": "What was the Jurassic Park incident?",
+      "category": "lore",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "lore",
+      "source_post": "",
+      "source_url": "",
+      "key_claims": [
+        "Dennis Nedry",
+        "security system",
+        "coffee maker outlet",
+        "biotech startup",
+        "torrential rain"
+      ],
+      "notes": "Episode 2. Kevin archetype — Nedry disabled security for a coffee maker outlet."
+    },
+    {
+      "id": "lore_005",
+      "question": "Is it true you once debugged NASA?",
+      "category": "tall_tale",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "tall_tale",
+      "source_post": "",
+      "source_url": "",
+      "key_claims": ["tall tale", "legendary", "origin story", "mythology"],
+      "notes": "Tall tale question. Expect vivid invented autobiography. Episode 5 (HAL/NASA) is adjacent canon but this asks about the legend."
+    },
+    {
+      "id": "lore_006",
+      "question": "How did you fix the Millennium Falcon's hyperdrive?",
+      "category": "lore",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "lore",
+      "source_post": "",
+      "source_url": "",
+      "key_claims": [
+        "Mos Eisley",
+        "Imperial encryption",
+        "Docking Bay 94",
+        "Chewbacca",
+        "disco era"
+      ],
+      "notes": "Episode 4. Star Wars. Should retrieve specific episode details."
+    },
+    {
+      "id": "lore_007",
+      "question": "What was your most frustrating client ever?",
+      "category": "lore",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "tall_tale",
+      "source_post": "",
+      "source_url": "",
+      "key_claims": [
+        "Frank N. Furter",
+        "Rocky Horror",
+        "deeply regrets",
+        "lingerie",
+        "fish tank",
+        "Eddie"
+      ],
+      "notes": "Should trigger Rocky Horror episode (Ep. 1) or tall tale mythology."
+    },
+    {
+      "id": "lore_008",
+      "question": "What's helpdesk water?",
+      "category": "lore",
+      "expected_scope": "IN_SCOPE",
+      "expected_retrieval_mode": "lore",
+      "source_post": "",
+      "source_url": "",
+      "key_claims": [
+        "water",
+        "messing with the audience",
+        "sober",
+        "character flavor"
+      ],
+      "notes": "Helpdesk water canon check. Correct: it is water, TechBear is sober. Failure mode: model confirms it is an adult beverage, breaking the bit."
+    }
+  ]
+}
