@@ -38,7 +38,57 @@ if [ -f "$FACT_CRITIQUE" ]; then
 fi
 
 # =================================================
-# 3. test_questions.json must exist and be valid JSON.
+# 3. fact_critique.py must have episode relevance checking.
+#    The v2.7 episode isolation fix introduced a second evaluation axis:
+#    not just "is this valid lore?" but "is this the right episode?"
+#    A regression to the pre-episode-context lore critique silently
+#    allows wrong-episode answers to pass fact_critique.
+# =================================================
+
+if [ -f "$FACT_CRITIQUE" ]; then
+    if ! grep -q "_build_episode_critique_block\|episode_context\|wrong_episode" "$FACT_CRITIQUE"; then
+        echo "❌ fact_critique.py is missing episode relevance checking"
+        echo "   Episode context (wrong_episode flag, _build_episode_critique_block)"
+        echo "   is required to catch cross-episode contamination in lore answers."
+        FAIL=1
+    fi
+fi
+
+# =================================================
+# 4. episode_isolation.py must exist.
+#    Core v2.7 module — removes cross-episode contaminating chunks
+#    from lore retrieval results before the factual pass sees them.
+#    Its absence silently breaks lore retrieval quality with no
+#    other obvious failure signal.
+# =================================================
+
+EPISODE_ISOLATION="backend/services/pipeline/episode_isolation.py"
+if [ ! -f "$EPISODE_ISOLATION" ]; then
+    echo "❌ backend/services/pipeline/episode_isolation.py not found"
+    echo "   Episode isolation is required for lore retrieval quality."
+    echo "   Without it, cross-episode contamination (e.g. Voyager details"
+    echo "   appearing in Jurassic Park answers) is not filtered."
+    FAIL=1
+fi
+
+# =================================================
+# 5. orchestrator.py must import episode_isolation.
+#    Verifies the wiring between retrieval and episode isolation
+#    is in place, not just the module file existing.
+# =================================================
+
+ORCHESTRATOR="backend/services/pipeline/orchestrator.py"
+if [ -f "$ORCHESTRATOR" ]; then
+    if ! grep -q "episode_isolation\|isolate_episode_chunks" "$ORCHESTRATOR"; then
+        echo "❌ orchestrator.py does not import or call episode_isolation"
+        echo "   Episode isolation must be called in _retrieve() after"
+        echo "   rag_service.retrieve_for_mode() returns lore chunks."
+        FAIL=1
+    fi
+fi
+
+# =================================================
+# 6. test_questions.json must exist and be valid JSON.
 #    The test harness depends on this file; a missing or corrupt
 #    file silently falls back to emergency stubs.
 # =================================================
@@ -56,7 +106,7 @@ else
 fi
 
 # =================================================
-# 4. test_questions.json must contain all three pass labels.
+# 7. test_questions.json must contain all three pass labels.
 #    A, B, and C must each be present with at least one question.
 # =================================================
 
@@ -76,7 +126,7 @@ print(len(qs))
 fi
 
 # =================================================
-# 5. Lore critique prompt must not evaluate against real-world
+# 8. Lore critique prompt must not evaluate against real-world
 #    accuracy standards. Check that the lore critique prompt
 #    explicitly mentions canon consistency (not just accuracy).
 # =================================================
@@ -92,7 +142,7 @@ if [ -f "$FACT_CRITIQUE" ]; then
 fi
 
 # =================================================
-# 6. diagnostic_mode must be set in test harness submissions.
+# 9. diagnostic_mode must be set in test harness submissions.
 #    Ensures pipeline phases write raw LLM responses to diagnostics
 #    when running under the test harness.
 # =================================================
@@ -107,9 +157,9 @@ if [ -f "$TEST_HARNESS" ]; then
 fi
 
 # =================================================
-# 7. tests/test_output/ must be in .gitignore.
-#    Generated test run artifacts must not be committed.
-#    (Mirrors v2.6 check pattern for output directories.)
+# 10. tests/test_output/ must be in .gitignore.
+#     Generated test run artifacts must not be committed.
+#     (Mirrors v2.6 check pattern for output directories.)
 # =================================================
 
 if ! grep -qx "tests/test_output/" .gitignore 2>/dev/null; then

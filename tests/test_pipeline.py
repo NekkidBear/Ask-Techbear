@@ -367,10 +367,12 @@ def run_question(
         "question": q["question"],
         "source": f"test_{pass_label}",
         "expected_scope": q.get("expected_scope", "IN_SCOPE"),
+        # ← here
+        "expected_retrieval_mode": q.get("expected_retrieval_mode", "factual"),
         "conversation_depth": 0,
         "rolling_context": "",
         "batch_context": [],
-        "diagnostic_mode": True,  # enables raw LLM capture in pipeline phases
+        "diagnostic_mode": True,
     }
 
     result = {
@@ -485,7 +487,7 @@ def run_question(
 def _summary_line(r: dict) -> str:
     """One-line summary for --summary mode."""
     status = r.get("pipeline_result", "?")
-    routing = r.get("actual_retrieval_mode", "?")
+    routing = r.get("actual_retrieval_mode") or "?"
     expected = r.get("expected_retrieval_mode", "")
     routing_flag = f"⚠{expected}→{routing}" if r.get(
         "routing_mismatch") else routing

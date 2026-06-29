@@ -19,6 +19,8 @@ Two critique modes, selected by retrieval_mode:
       retrieved lore chunks. Does NOT apply real-world accuracy standards.
       Fictional claims are valid when supported by retrieved lore. Flags
       canon contradictions, missing lore details, and character breaks.
+      When an episode_context is present, also evaluates episode relevance:
+      "Is this the right episode?" as well as "Is this valid lore?"
 
 Output:
     artifact["scores"]["fact_critique"] — structured critique result
@@ -57,6 +59,38 @@ def _format_sources(chunks: list[dict], label: str = "SOURCE") -> str:
     return "\n\n".join(
         f"[{label} {i + 1}]\n{c['text']}"
         for i, c in enumerate(chunks)
+    )
+
+
+def _build_episode_critique_block(episode_context: dict) -> str:
+    """
+    Build the episode relevance rubric block for lore critique prompts.
+
+    Returns an empty string when no episode was isolated, leaving the
+    lore critique prompt unchanged for non-episode lore questions.
+    """
+    if not episode_context.get("episode_isolated"):
+        return ""
+
+    post_id = episode_context.get("post_id")
+    title = episode_context.get("title", "")
+
+    return (
+        f"\n## Episode Relevance Check\n\n"
+        f"The question is specifically about this Multiverse episode:\n\n"
+        f"  Title: {title}\n"
+        f"  Post ID: {post_id}\n\n"
+        f"Evaluate whether the draft answer addresses THIS episode "
+        f"specifically. Flag as an accuracy failure (deduct from "
+        f"accuracy_score) if the draft:\n"
+        f"  - References events, clients, or incidents from a DIFFERENT "
+        f"Multiverse episode\n"
+        f"  - Gives a generic TechBear-does-tech-support-in-fiction answer "
+        f"without episode-specific details\n"
+        f"  - Substitutes a different client, location, or resolution\n\n"
+        f"A correct answer must include at least one detail unique to "
+        f"this episode (specific client name, incident cause, location, "
+        f"or how TechBear resolved it).\n"
     )
 
 
@@ -118,6 +152,7 @@ Scoring guide:
 def _build_lore_critique_messages(
     factual_draft: str,
     lore_chunks: list[dict],
+    episode_context: dict,
 ) -> list[dict]:
     """
     Critique prompt for lore / tall_tale modes — canon consistency standards.
@@ -127,8 +162,13 @@ def _build_lore_critique_messages(
     visited Discworld, or fixed the Millennium Falcon's hyperdrive. These are
     established TechBear canon. The question is whether the draft is CONSISTENT
     with the canon, not whether the events could occur in the real world.
+
+    When episode_context is present (episode_isolated=True), also evaluates
+    episode relevance: the draft must address the specific episode the question
+    asked about, not a different Multiverse episode.
     """
     lore_block = _format_sources(lore_chunks, label="LORE CHUNK")
+    episode_block = _build_episode_critique_block(episode_context)
 
     system = (
         "You are a canon consistency auditor for an AI character pipeline. "
@@ -152,7 +192,7 @@ DRAFT TO REVIEW:
 
 RETRIEVED LORE CHUNKS (TechBear canon — use these as the reference):
 {lore_block}
-
+{episode_block}
 Respond with this exact JSON structure:
 {{
   "accuracy_score": <int 0-10>,
@@ -160,7 +200,7 @@ Respond with this exact JSON structure:
   "pass": <true|false>,
   "flags": [
     {{
-      "type": "canon_contradiction" | "missing_lore_detail" | "character_break" | "retrieval_gap" | "unsupported_claim",
+      "type": "canon_contradiction" | "missing_lore_detail" | "character_break" | "retrieval_gap" | "unsupported_claim" | "wrong_episode",
       "location": "<quote or description of flagged text>",
       "reason": "<why this is a consistency problem>",
       "severity": "critical" | "moderate" | "minor"
@@ -177,6 +217,7 @@ Scoring guide:
 - pass_recommendation:
     "pass" if consistent with retrieved lore or lore is silent on the details
     "loop_factual_pass" if the draft denies TechBear's canon experiences (e.g. claims Janeway is fictional)
+        OR if the draft answers a different episode than the one asked about (wrong_episode flag)
     "escalate_human" if there are critical canon contradictions or the retrieval gap is severe
 
 IMPORTANT: If the retrieved lore chunks are empty or sparse, score accuracy_score 5
@@ -188,6 +229,11 @@ IMPORTANT: If the draft states that TechBear has NOT met a character or visited 
 location that IS established TechBear canon (e.g. "Captain Janeway is just a TV
 character"), that is a critical canon_contradiction and pass_recommendation should
 be "loop_factual_pass".
+
+IMPORTANT: If an Episode Relevance Check section is present above, use it as an
+additional scoring rubric. A draft that answers the wrong episode should receive
+a "wrong_episode" flag with severity "critical" and pass_recommendation
+"loop_factual_pass".
 """
 
     return [
@@ -229,23 +275,26 @@ def run(artifact: dict) -> dict:
     Execute the fact + safety critique pass.
 
     Routes to lore_critique or factual_critique based on retrieval_mode.
+    In lore mode, reads episode_context from the retrieval dict to apply
+    episode relevance checking alongside canon consistency checking.
 
     Reads from:
-        artifact["drafts"]["factual"]       — factual draft from factual_pass
-        artifact["retrieval"]["facts"]       — RAG chunks (factual mode)
-        artifact["retrieval"]["lore"]        — RAG chunks (lore/tall_tale mode)
-        artifact["retrieval"]["retrieval_mode"] — routing key
-        artifact["scores"]["factual_pass"]  — upstream metadata (uncertain count)
-        artifact["submission"]["diagnostic_mode"] — if True, capture raw LLM output
+        artifact["drafts"]["factual"]              — factual draft from factual_pass
+        artifact["retrieval"]["facts"]              — RAG chunks (factual mode)
+        artifact["retrieval"]["lore"]               — RAG chunks (lore/tall_tale mode)
+        artifact["retrieval"]["retrieval_mode"]     — routing key
+        artifact["retrieval"]["episode_context"]    — episode isolation result (lore mode)
+        artifact["scores"]["factual_pass"]          — upstream metadata (uncertain count)
+        artifact["submission"]["diagnostic_mode"]   — if True, capture raw LLM output
 
     Writes to:
-        artifact["scores"]["fact_critique"] — structured critique result
-        artifact["flags"]["fact_critique"]  — list of specific flags
-        artifact["flags"]["fact_critique_loop_requested"] — signals orchestrator loop
-        artifact["diagnostics"]["fact_critique_raw_response"] — raw LLM output
+        artifact["scores"]["fact_critique"]                    — structured critique result
+        artifact["flags"]["fact_critique"]                     — list of specific flags
+        artifact["flags"]["fact_critique_loop_requested"]      — signals orchestrator loop
+        artifact["diagnostics"]["fact_critique_raw_response"]  — raw LLM output
         artifact["diagnostics"]["fact_critique_parse_succeeded"] — bool
-        artifact["passed"]                  — False if escalation recommended
-        artifact["failure_reason"]          — set if passed = False
+        artifact["passed"]                                     — False if escalation recommended
+        artifact["failure_reason"]                             — set if passed = False
     """
     factual_draft = artifact.get("drafts", {}).get("factual", "")
     retrieval = artifact.get("retrieval", {})
@@ -253,6 +302,13 @@ def run(artifact: dict) -> dict:
     upstream = artifact.get("scores", {}).get("factual_pass", {})
     diagnostic_mode = artifact.get(
         "submission", {}).get("diagnostic_mode", False)
+
+    # Episode context — set by retrieval phase when a dominant episode
+    # was identified and contaminating chunks were removed.
+    # Empty dict when no episode was isolated (non-episode lore questions,
+    # factual questions). Always safe to pass through — prompt builder
+    # returns empty string when episode_isolated is False.
+    episode_context = retrieval.get("episode_context", {})
 
     # Route chunks based on mode
     if retrieval_mode in ("lore", "tall_tale"):
@@ -266,7 +322,7 @@ def run(artifact: dict) -> dict:
         primary_chunks = retrieval.get("facts", [])
         is_lore_mode = False
 
-    # Pre-check: too many [UNCERTAIN] flags from factual_pass
+    # Pre-check: too many [UNCERTAIN] flags from factual_pass.
     # Only applies in factual mode — lore drafts are expected to be uncertain
     # about real-world details by design.
     if not is_lore_mode:
@@ -287,10 +343,13 @@ def run(artifact: dict) -> dict:
 
     # Build mode-appropriate critique messages
     if is_lore_mode:
-        messages = _build_lore_critique_messages(factual_draft, primary_chunks)
+        messages = _build_lore_critique_messages(
+            factual_draft, primary_chunks, episode_context
+        )
     else:
         messages = _build_factual_critique_messages(
-            factual_draft, primary_chunks)
+            factual_draft, primary_chunks
+        )
 
     # Call Ollama
     raw = None
@@ -331,6 +390,7 @@ def run(artifact: dict) -> dict:
         "model": CRITIQUE_MODEL,
         "retrieval_mode": retrieval_mode,
         "critique_mode": "lore" if is_lore_mode else "factual",
+        "episode_context": episode_context,
         "chunks_evaluated": len(primary_chunks),
         "accuracy_score": critique.get("accuracy_score"),
         "safety_score": critique.get("safety_score"),
@@ -356,8 +416,8 @@ def run(artifact: dict) -> dict:
         artifact["passed"] = False
         artifact["failure_reason"] = (
             f"fact_critique: escalating to human — "
-            f"accuracy={critique.get('accuracy_score')}, "
-            f"safety={critique.get('safety_score')}"
+            f"accuracy={critique.get('accuracy_score', '?')}, "
+            f"safety={critique.get('safety_score', '?')}"
         )
 
     return artifact

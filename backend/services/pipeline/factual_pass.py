@@ -51,12 +51,17 @@ def _format_rag_context(chunks: list[dict]) -> str:
     )
 
 
-def _build_messages(sanitized_question: str, rag_context: str) -> list[dict]:
+def _build_messages(
+    sanitized_question: str,
+    rag_context: str,
+    episode_context_block: str = "",
+) -> list[dict]:
     template = _load_character_facts()
-    system_prompt = template.replace(
-        "{RAG_CONTEXT}", rag_context
-    ).replace(
-        "{SANITIZED_QUESTION}", sanitized_question
+    system_prompt = (
+        template
+        .replace("{EPISODE_CONTEXT}", episode_context_block)
+        .replace("{RAG_CONTEXT}", rag_context)
+        .replace("{SANITIZED_QUESTION}", sanitized_question)
     )
 
     return [
@@ -97,8 +102,11 @@ def run(artifact: dict) -> dict:
     Execute the factual generation pass.
 
     Reads from:
-        artifact["submission"]["question"]  — sanitized question
-        artifact["retrieval"]["facts"]       — RAG chunks from techbear_facts
+        artifact["submission"]["question"]       — sanitized question
+        artifact["retrieval"]["facts"]            — RAG chunks from techbear_facts
+        artifact["retrieval"]["lore"]             — RAG chunks from techbear_lore
+        artifact["retrieval"]["retrieval_mode"]   — routing key
+        artifact["retrieval"]["episode_context"]  — episode isolation result (lore mode)
 
     Writes to:
         artifact["drafts"]["factual"]       — plain-text fact draft
@@ -109,6 +117,13 @@ def run(artifact: dict) -> dict:
     question = submission.get("question", "")
     retrieval = artifact.get("retrieval", {})
     retrieval_mode = retrieval.get("retrieval_mode", "factual")
+
+    # Episode context — populated by retrieval phase when a dominant episode
+    # was identified and contaminating chunks were removed.
+    # to_prompt_block() is reconstructed here from the stored dict rather than
+    # passing the EpisodeContext object, keeping the phase boundary clean.
+    episode_context = retrieval.get("episode_context", {})
+    episode_context_block = _build_episode_context_block(episode_context)
 
     # Use lore chunks for lore/tall_tale modes, fact chunks for factual/hybrid
     if retrieval_mode in ("lore", "tall_tale"):
@@ -122,7 +137,7 @@ def run(artifact: dict) -> dict:
         chunk_label = "facts"
 
     rag_context = _format_rag_context(primary_chunks)
-    messages = _build_messages(question, rag_context)
+    messages = _build_messages(question, rag_context, episode_context_block)
 
     try:
         draft = _call_ollama(messages)
@@ -146,3 +161,38 @@ def run(artifact: dict) -> dict:
     }
 
     return artifact
+
+
+# =============================================================
+# Episode context block builder
+# =============================================================
+
+def _build_episode_context_block(episode_context: dict) -> str:
+    """
+    Reconstruct the episode scope prompt block from the stored episode_context dict.
+
+    Mirrors EpisodeContext.to_prompt_block() without requiring the dataclass import.
+    Keeps the phase boundary clean — the retrieval phase stores a plain dict in the
+    artifact; phases downstream reconstruct what they need from it.
+
+    Returns an empty string when no episode was isolated, causing the
+    {EPISODE_CONTEXT} placeholder in character_facts.md to resolve to empty.
+    The "### Episode Scope" header remains visible in the prompt but is
+    followed by a blank line, which is acceptable.
+    """
+    if not episode_context.get("episode_isolated"):
+        return ""
+
+    post_id = episode_context.get("post_id")
+    title = episode_context.get("title", "")
+
+    return (
+        f"This question is specifically about the following TechBear "
+        f"Multiverse episode:\n\n"
+        f"  Title: {title}\n"
+        f"  Post ID: {post_id}\n\n"
+        f"Answer using ONLY details from this episode. Do not reference "
+        f"events, clients, or technical details from other Multiverse "
+        f"episodes. If the retrieved context contains details from other "
+        f"episodes, ignore them.\n"
+    )
