@@ -65,6 +65,7 @@ except ImportError:
 # The _DB_AVAILABLE flag gates all usage so the except path is never reached
 # when these names are actually called.
 _DB_AVAILABLE = False  # pylint: disable=invalid-name
+
 if TYPE_CHECKING:
     from sqlalchemy import select
     from backend.database import get_db_context
@@ -743,6 +744,10 @@ def main() -> None:  # pylint: disable=missing-function-docstring
         level=logging.DEBUG if args.verbose else logging.WARNING,
         format="%(name)s %(levelname)s %(message)s",
     )
+    # Suppress SQLAlchemy engine chatter (connection events, raw SQL) unless
+    # --verbose is active. Without this, DB queries interleave with stage output.
+    if not args.verbose:
+        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp: str = datetime.now().strftime("%Y%m%d_%H%M%S")
