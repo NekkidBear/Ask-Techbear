@@ -8,7 +8,7 @@ Run with: python -m backend.scripts.seed_blocklist
 import asyncio
 
 from backend.database import get_db_context
-from backend.services.moderation import seed_default_blocklist
+from backend.services.blocklist_service import seed_default_blocklist
 
 
 async def main():

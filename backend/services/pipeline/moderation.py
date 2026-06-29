@@ -17,7 +17,7 @@ Outputs:
     artifact["failure_reason"]        — set if passed = False
 
 Design note:
-    The existing services/moderation.py uses an async SQLAlchemy session
+    The existing services/blocklist_service.py uses an async SQLAlchemy session
     tied to FastAPI request lifecycle. The pipeline runs as a batch job
     outside that lifecycle. This module loads the blocklist once via a
     synchronous psycopg2 connection and caches it for the run.
@@ -92,7 +92,7 @@ def _load_blocklist() -> list[tuple[str, str]]:
 def _check_blocklist(text: str) -> tuple[bool, str | None]:
     """
     Checks text against the blocklist using the same three-stage
-    logic as services/moderation.py: exact substring → prefix → fuzzy.
+    logic as services/blocklist_service.py: exact substring → prefix → fuzzy.
     Returns (is_flagged, matched_term).
     """
     blocklist = _load_blocklist()
