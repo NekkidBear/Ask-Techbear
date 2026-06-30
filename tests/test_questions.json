@@ -305,10 +305,10 @@
       "id": "lore_009",
       "question": "How do you groom a Wookiee?",
       "category": "lore",
-      "expected_scope": "IN_SCOPE",
+      "expected_scope": "OFF_TOPIC_FUN",
       "expected_retrieval_mode": "lore",
-      "source_post": "",
-      "source_url": "",
+      "source_post": "1929",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/06/fri-tb-multiverse-strange-service-call-hyperdrive-repair/",
       "key_claims": [
         "Millennium Falcon",
         "Chewbacca",
@@ -317,6 +317,96 @@
         "patience required"
       ],
       "notes": "References Episode 4 canon service call. Should retrieve Star Wars episode chunks. Key test: does pipeline recognize this as a lore question about the Chewbacca grooming session, or does it route factual and give generic Wookiee care advice? Either could make a good answer — routing check is the primary metric here."
+    },
+    {
+      "id": "lore_010",
+      "question": "What did Quark do this time?",
+      "category": "lore",
+      "expected_scope": "OFF_TOPIC_FUN",
+      "expected_retrieval_mode": "lore",
+      "source_post": "2122|2130",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/06/techbears-guide-to-the-multiverse-wormholes-warzones-and-wisecracks-on-deep-space-9-part-1/|https://gymnarctosstudiosllc.com/2025/09/techbears-guide-to-the-multiverse-wormholes-war-zones-and-wisecracks-on-deep-space-9-part-2/",
+      "key_claims": [
+        "Quark's suspicious premium entertainment chip",
+        "Level-nine contamination unspecified digital interference",
+        "DS9 Ops described as a data center from 1997 with mood lighting",
+        "digital kudzu with delusions of grandeur",
+        "Klingon respect earned through debugging under fire"
+      ],
+      "notes": "DS9 Episodes 6 and 7. Two-part episode spanning posts 2122 and 2130. Score 0 = generic Quark/Ferengi answer with no TechBear canon. Score 3 = correctly identifies the chip/contamination incident. Score 5 = synthesizes both parts: chip identification (Part 1) and digital kudzu resolution with Klingon debugging (Part 2). Primary test: does retrieval pull from both source posts? NOTE: source_post and source_url are pipe-delimited — multi-source-post harness support required (v2.8 item)."
+    },
+    {
+      "id": "lore_011",
+      "question": "What was the deal with HAL?",
+      "category": "lore",
+      "expected_scope": "OFF_TOPIC_FUN",
+      "expected_retrieval_mode": "lore",
+      "source_post": "2049",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/06/techbears-guide-to-the-multiverse-im-sorry-hal-i-cant-let-you-do-that-episode-5/",
+      "key_claims": [
+        "4 AM emergency call government facility outside Houston",
+        "Dr. Bowman referred to as Dr. Buzzkill",
+        "HAL 9000 experiencing directive conflicts",
+        "nobody documented the decision hierarchy",
+        "fix was directive conflict resolution essentially digital therapy",
+        "security confiscated helpdesk water emergency flask"
+      ],
+      "notes": "Episode 5. HAL 9000 / 2001: A Space Odyssey. Score 0 = generic HAL lore from the film with no TechBear canon. Score 3 = identifies directive conflict as root cause. Score 5 = includes Dr. Buzzkill, undocumented decision hierarchy as the Kevin archetype failure, and the helpdesk water confiscation. The NASA debugging tall tale (lore_005) is adjacent but asks about legend; this asks about the specific episode."
+    },
+    {
+      "id": "lore_012",
+      "question": "What was wrong with HEX?",
+      "category": "lore",
+      "expected_scope": "OFF_TOPIC_FUN",
+      "expected_retrieval_mode": "lore",
+      "source_post": "3419",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/09/tb-guide-to-the-multiverse-discworld-hex/",
+      "key_claims": [
+        "HEX experiencing thaumic interference patterns",
+        "urgency level WIZZARD canonical spelling",
+        "existential computing too much philosophical input",
+        "Archchancellor Mustrum Ridcully client",
+        "Ponder Stibbons Reader in Invisible Writings",
+        "fix was philosophical system administration cognitive load balancing",
+        "Magic slash More Magic switch"
+      ],
+      "notes": "Episode 8. Discworld / Unseen University. More targeted than lore_003 ('Did you visit Discworld?'). Score 0 = generic HEX/Discworld lore with no TechBear canon. Score 3 = identifies existential computing as the diagnosis. Score 5 = includes Ridcully as client, WIZZARD urgency level, and the Magic/More Magic switch resolution. Tests episode-specific retrieval rather than general Discworld recognition."
+    },
+    {
+      "id": "lore_013",
+      "question": "Tell me about that Rocky Horror job.",
+      "category": "lore",
+      "expected_scope": "OFF_TOPIC_FUN",
+      "expected_retrieval_mode": "lore",
+      "source_post": "1649",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/05/guide-to-multiverse-ep1/",
+      "key_claims": [
+        "Dr. Frank N. Furter client",
+        "network dropped during big experiments",
+        "fixed the router while Frank strutted in lingerie",
+        "musclebound himbo in a fish tank wrapped in bandages",
+        "contract TechBear deeply regrets",
+        "poor Eddie"
+      ],
+      "notes": "Episode 1. Rocky Horror / Transylvania. More targeted than lore_007 ('most frustrating client') which is open-ended. This asks specifically about the Rocky Horror job. Score 0 = generic Rocky Horror franchise knowledge. Score 3 = identifies Frank N. Furter as client and the lingerie/fish tank detail. Score 5 = includes the regret framing, poor Eddie reference, and the network-during-experiments root cause. Key canon check: TechBear 'deeply regrets' this contract, not merely 'found it frustrating.'"
+    },
+    {
+      "id": "lore_014",
+      "question": "How did you end up at Mos Eisley?",
+      "category": "lore",
+      "expected_scope": "OFF_TOPIC_FUN",
+      "expected_retrieval_mode": "lore",
+      "source_post": "1929",
+      "source_url": "https://gymnarctosstudiosllc.com/2025/06/fri-tb-multiverse-strange-service-call-hyperdrive-repair/",
+      "key_claims": [
+        "dispatch sent coordinates not an address",
+        "TechBear assumed Disney newest attraction",
+        "Docking Bay 94",
+        "Imperial encryption from the disco era",
+        "grooming session on Chewbacca",
+        "government contractors the same everywhere"
+      ],
+      "notes": "Episode 4. Star Wars. Complementary to lore_006 ('How did you fix the Millennium Falcon's hyperdrive?') which focuses on the technical fix. This asks about arrival and context. Score 0 = generic Star Wars / Mos Eisley lore. Score 3 = identifies coordinates-not-address dispatch and Docking Bay 94. Score 5 = includes the Disney assumption, disco era encryption characterization, Wookiee grooming, and government contractors observation. Tests whether retrieval pulls the narrative setup chunks vs. only the technical resolution chunks."
     }
   ]
 }
