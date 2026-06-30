@@ -19,6 +19,14 @@ Loop handling:
     character_critique may signal "loop_voice_pass" → retries voice_pass
         up to VOICE_LOOP_CAP times before escalating.
     All loop counts are recorded in artifact["loop_counts"] for calibration.
+
+Logging:
+    configure_logging() is called by the test harness or CLI entrypoint
+    before run_pipeline() is invoked. The orchestrator does not call it
+    directly — callers control verbosity.
+
+    Import path for callers:
+        from backend.services.pipeline.logging_config import configure_logging
 """
 
 import logging
@@ -81,20 +89,26 @@ def _retrieve(artifact: dict) -> dict:
     """
     question = artifact["submission"].get("question", "")
     retrieval_mode = artifact["submission"].get("retrieval_mode", "factual")
-    print("=" * 72)
-    print("DEBUG ORCHESTRATOR._retrieve")
-    print("question:", question)
-    print("submission.retrieval_mode:",
-          artifact["submission"].get("retrieval_mode"))
-    print("resolved retrieval_mode:", retrieval_mode)
-    print("submission keys:", sorted(artifact["submission"].keys()))
-    print("=" * 72)
+
+    logger.debug(
+        "retrieval | question=%r retrieval_mode=%r submission_keys=%s",
+        question,
+        retrieval_mode,
+        sorted(artifact["submission"].keys()),
+    )
 
     try:
         chunks = rag_service.retrieve_for_mode(question, retrieval_mode)
     except Exception as exc:  # pylint: disable=broad-exception-caught
         # ChromaDB raises varied exceptions (connection, dimension, missing collection)
         # Intentionally broad — pipeline degrades gracefully with empty retrieval
+        logger.warning(
+            "retrieval | failed — pipeline will continue with empty context | "
+            "error=%r retrieval_mode=%r question=%r",
+            str(exc),
+            retrieval_mode,
+            question,
+        )
         chunks = {"facts": [], "voice": [], "lore": []}
         artifact.setdefault("flags", {})["retrieval_error"] = str(exc)
 
@@ -180,16 +194,21 @@ def _run_phase_with_retry(
             artifact["loop_counts"][loop_count_key] = loop_count
             artifact["drafts"].pop(draft_key, None)
             logger.info(
-                "%s retry %d/%d requested by %s",
-                generation_phase_name, loop_count, loop_cap, critique_phase_name,
+                "%s retry %d/%d | trigger=%s",
+                generation_phase_name,
+                loop_count,
+                loop_cap,
+                critique_phase_name,
             )
             continue
 
         if loop_requested and loop_count >= loop_cap:
             # Cap reached — escalate rather than loop indefinitely
             logger.warning(
-                "%s loop cap (%d) reached — escalating to human review",
-                generation_phase_name, loop_cap,
+                "%s loop cap reached | cap=%d retries=%d — escalating to human review",
+                generation_phase_name,
+                loop_cap,
+                loop_count,
             )
             artifact["passed"] = False
             artifact["failure_reason"] = (
@@ -227,6 +246,7 @@ def run_pipeline(
     """
 
     def _notify(stage: str) -> None:
+        logger.debug("orchestrator | phase_start='%s'", stage)
         if on_stage is not None:
             on_stage(stage)
 
@@ -306,15 +326,18 @@ def run_pipeline(
             artifact["loop_counts"]["voice"] = voice_loop_count
             artifact["drafts"].pop("voice", None)
             logger.info(
-                "voice_pass retry %d/%d requested by character_critique",
-                voice_loop_count, VOICE_LOOP_CAP,
+                "voice_pass retry %d/%d | trigger=character_critique",
+                voice_loop_count,
+                VOICE_LOOP_CAP,
             )
             continue
 
         if loop_requested and voice_loop_count >= VOICE_LOOP_CAP:
             logger.warning(
-                "voice_pass loop cap (%d) reached — escalating to human review",
+                "voice_pass loop cap reached | cap=%d retries=%d "
+                "— escalating to human review",
                 VOICE_LOOP_CAP,
+                voice_loop_count,
             )
             artifact["passed"] = False
             artifact["failure_reason"] = (
@@ -345,5 +368,13 @@ def run_pipeline(
     # ── Phase 11: Human review handoff ───────────────────
     _notify("handoff")
     artifact = handoff.run(artifact)
+
+    logger.info(
+        "orchestrator | pipeline_complete | "
+        "passed=%s failure_reason=%r loop_counts=%s",
+        artifact.get("passed"),
+        artifact.get("failure_reason"),
+        artifact.get("loop_counts"),
+    )
 
     return artifact
