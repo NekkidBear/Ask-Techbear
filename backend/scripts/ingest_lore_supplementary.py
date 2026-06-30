@@ -338,10 +338,13 @@ def split_lore_bios_by_episode(text: str) -> list[dict]:
 
     bio_pairs = list(zip(parts[1::2], parts[2::2]))
     for i, (header, body) in enumerate(bio_pairs):
-        # Match post_id(s) from the LORE_BIO_POST_IDS mapping
+        # Match post_id(s) from the LORE_BIO_POST_IDS mapping.
+        # Match against header only — body text may contain references
+        # to other episodes (e.g. Delta Quadrant bio mentions raktajino
+        # which would incorrectly match the DS9 key if body is searched).
         post_ids: list[int] = []
         for key, ids in LORE_BIO_POST_IDS.items():
-            if key.lower() in header.lower() or key.lower() in body.lower():
+            if key.lower() in header.lower():
                 post_ids = ids
                 break
 
