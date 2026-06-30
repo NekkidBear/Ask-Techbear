@@ -8,16 +8,26 @@ Three-collection RAG:
   techbear_lore  — TechBear canon (Multiverse) and tall tale callbacks
 
 Retrieval modes:
-  factual  — facts + voice (technical questions)
-  lore     — lore + voice (canon/character questions e.g. "have you met Janeway?")
-  hybrid   — facts + lore + voice (questions mixing technical and lore)
+  factual   — facts + voice (technical questions)
+  lore      — lore + voice (canon/character questions e.g. "have you met Janeway?")
+  hybrid    — facts + lore + voice (questions mixing technical and lore)
   tall_tale — lore (tall_tale tier only) + voice (TechBear background questions)
+
+Episode-targeted secondary retrieval (v2.8 item 8):
+  After episode isolation identifies a dominant post_id, retrieve_lore_targeted()
+  pulls all chunks for that specific episode using a where-clause filter.
+  This ensures episode-specific facts are available to the factual pass
+  regardless of their semantic similarity rank in the initial broad search.
+  Called from orchestrator._retrieve() after isolate_episode_chunks() runs.
 """
 
+import logging
 from typing import Any, Dict, List, cast
 
 import chromadb
 import requests
+
+logger = logging.getLogger(__name__)
 
 CHROMA_PATH = "./chroma_db"
 
@@ -27,6 +37,10 @@ LORE_COLLECTION = "techbear_lore"
 
 OLLAMA_URL = "http://localhost:11434/api/chat"
 DEFAULT_MODEL = "llama3.1:8b"
+
+# k value for episode-targeted secondary retrieval.
+# Higher than the broad search k to ensure full episode coverage.
+TARGETED_LORE_K = 12
 
 
 # ============================================================
@@ -91,6 +105,102 @@ def retrieve_lore(
     return _pack(results)
 
 
+def retrieve_lore_targeted(
+    query: str,
+    post_id: int,
+    k: int = TARGETED_LORE_K,
+) -> List[Dict]:
+    """
+    Episode-targeted secondary retrieval — v2.8 item 8.
+
+    Retrieves all lore chunks for a specific episode post_id using a
+    where-clause filter. Called after episode isolation identifies a
+    dominant episode to supplement broad semantic retrieval with full
+    episode coverage.
+
+    This ensures episode-specific facts (e.g. Nedry, security arrays
+    for Jurassic Park) are available to the factual pass regardless of
+    their semantic similarity rank in the initial broad search.
+
+    Args:
+        query: the question text (used for similarity ranking within results)
+        post_id: WordPress post ID of the dominant episode
+        k: max chunks to retrieve from this episode (default: TARGETED_LORE_K)
+
+    Returns:
+        List of chunk dicts with text and metadata, tagged with
+        retrieval_stage="targeted" for deduplication and diagnostics.
+    """
+    try:
+        results = lore_col.query(
+            query_texts=[query],
+            n_results=k,
+            where={"post_id": post_id},
+        )
+        chunks = _pack(results)
+
+        # Tag chunks so deduplication and diagnostics can identify
+        # which retrieval stage produced them
+        for chunk in chunks:
+            chunk.setdefault("meta", {})["retrieval_stage"] = "targeted"
+
+        logger.debug(
+            "retrieve_lore_targeted | post_id=%d k=%d returned=%d",
+            post_id, k, len(chunks),
+        )
+        return chunks
+
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # ChromaDB raises if no chunks match the where clause.
+        # Non-fatal — pipeline continues with Stage 1 results only.
+        logger.warning(
+            "retrieve_lore_targeted | failed — continuing with Stage 1 only | "
+            "post_id=%d error=%r",
+            post_id, str(exc),
+        )
+        return []
+
+
+def merge_lore_chunks(
+    stage1: List[Dict],
+    stage2: List[Dict],
+) -> List[Dict]:
+    """
+    Merge Stage 1 (broad) and Stage 2 (targeted) lore chunks.
+
+    Deduplicates by chunk text content — Stage 1 chunks take priority
+    (they are ranked by semantic similarity). Stage 2 chunks that are
+    not already present are appended after Stage 1.
+
+    Args:
+        stage1: broad semantic retrieval results
+        stage2: episode-targeted retrieval results
+
+    Returns:
+        Deduplicated merged list, Stage 1 ordering preserved.
+    """
+    seen_texts: set[str] = set()
+    merged: List[Dict] = []
+
+    for chunk in stage1:
+        text = chunk.get("text", "")
+        if text not in seen_texts:
+            seen_texts.add(text)
+            merged.append(chunk)
+
+    for chunk in stage2:
+        text = chunk.get("text", "")
+        if text not in seen_texts:
+            seen_texts.add(text)
+            merged.append(chunk)
+
+    logger.debug(
+        "merge_lore_chunks | stage1=%d stage2=%d merged=%d",
+        len(stage1), len(stage2), len(merged),
+    )
+    return merged
+
+
 def retrieve_for_mode(
     query: str,
     retrieval_mode: str = "factual",
@@ -106,6 +216,11 @@ def retrieve_for_mode(
         lore      — canon/character questions
         hybrid    — technical + lore mixed
         tall_tale — TechBear background/origin questions
+
+    Note: Episode-targeted secondary retrieval (item 8) is NOT called
+    here — it requires the dominant_post_id from episode isolation,
+    which runs in orchestrator._retrieve() after this function returns.
+    See orchestrator._retrieve() for the full two-stage retrieval flow.
     """
     voice = retrieve_voice(query)
 

@@ -78,12 +78,17 @@ def _retrieve(artifact: dict) -> dict:
     Reads retrieval_mode from submission (set by moderation) to route
     to the appropriate collection(s).
 
-    In lore and tall_tale modes, applies episode isolation after retrieval:
-    if a dominant Multiverse episode is present in the retrieved lore chunks,
-    contaminating chunks from other episodes (primarily lore_bible reference
-    chunks covering multiple episodes) are removed before the factual pass
-    sees them. The episode identity is stored in artifact["retrieval"] so
-    factual_pass and fact_critique can evaluate episode relevance.
+    Two-stage lore retrieval (v2.8 item 8):
+    Stage 1 — broad semantic search across lore collection (current behavior)
+    Stage 2 — episode-targeted query filtered by dominant post_id after
+               episode isolation identifies the dominant episode.
+               Ensures episode-specific facts are available to the factual
+               pass regardless of semantic similarity rank.
+
+    Episode isolation runs between Stage 1 and Stage 2:
+    If a dominant Multiverse episode is present in the Stage 1 lore chunks,
+    contaminating chunks from other episodes are removed before Stage 2 runs.
+    Stage 2 results are merged with Stage 1, deduplicated by chunk text.
 
     Non-fatal: pipeline continues with empty context and a flag set.
     """
@@ -114,10 +119,32 @@ def _retrieve(artifact: dict) -> dict:
 
     lore_chunks = chunks.get("lore", [])
 
-    # Episode isolation — lore and tall_tale modes only.
-    # For factual/hybrid modes, lore_chunks is empty so isolation is a no-op.
-    # isolate_episode_chunks() always returns safely regardless of input.
+    # Stage 1 complete — run episode isolation to identify dominant episode
+    # and remove cross-episode contaminating chunks.
     lore_chunks, episode_context = isolate_episode_chunks(lore_chunks)
+
+    # Stage 2 — episode-targeted secondary retrieval.
+    # Only runs in lore/tall_tale modes when a dominant episode was identified.
+    # Pulls all chunks for the dominant post_id to supplement Stage 1 results
+    # with full episode coverage regardless of semantic similarity ranking.
+    if (
+        retrieval_mode in ("lore", "tall_tale")
+        and episode_context.episode_isolated
+        and episode_context.post_id is not None
+    ):
+        stage2_chunks = rag_service.retrieve_lore_targeted(
+            question, episode_context.post_id
+        )
+        pre_merge_count = len(lore_chunks)
+        lore_chunks = rag_service.merge_lore_chunks(lore_chunks, stage2_chunks)
+        logger.debug(
+            "retrieval | stage2 complete | post_id=%d "
+            "stage1=%d stage2=%d merged=%d",
+            episode_context.post_id,
+            pre_merge_count,
+            len(stage2_chunks),
+            len(lore_chunks),
+        )
 
     artifact["retrieval"] = {
         "facts": chunks.get("facts", []),

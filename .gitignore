@@ -53,3 +53,7 @@ lint_output/
 
 # diff text files
 *diff*.txt
+
+# logs
+*.log
+logs/
