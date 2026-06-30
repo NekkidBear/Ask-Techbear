@@ -5,6 +5,7 @@ Moderation layer for the async batch pipeline.
 """
 
 import json
+import logging
 import os
 from functools import lru_cache
 from pathlib import Path
@@ -14,6 +15,8 @@ from dotenv import load_dotenv
 from rapidfuzz import fuzz
 from requests.exceptions import RequestException
 
+from .json_utils import parse_llm_json
+
 try:
     import psycopg2 as _psycopg2
     _PSYCOPG2_AVAILABLE = True
@@ -22,6 +25,8 @@ except ImportError:
     _PSYCOPG2_AVAILABLE = False
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 OLLAMA_URL = os.getenv(
     "OLLAMA_BASE_URL", "http://localhost:11434"
@@ -91,67 +96,6 @@ def _check_blocklist(text: str) -> tuple[bool, str | None]:
                 return True, term
 
     return False, None
-
-
-def _extract_first_json_object(raw: str) -> str:
-    """
-    Extract the first complete JSON object from an LLM response.
-
-    This tolerates cases where the model returns valid JSON followed by
-    extra commentary, while avoiding false brace matches inside strings.
-    """
-    raw = raw.strip()
-    start = raw.find("{")
-
-    if start == -1:
-        raise ValueError("No JSON object found in moderation response")
-
-    depth = 0
-    in_string = False
-    escape = False
-
-    for i, ch in enumerate(raw[start:], start=start):
-        if escape:
-            escape = False
-            continue
-
-        if ch == "\\":
-            escape = True
-            continue
-
-        if ch == '"':
-            in_string = not in_string
-            continue
-
-        if in_string:
-            continue
-
-        if ch == "{":
-            depth += 1
-        elif ch == "}":
-            depth -= 1
-
-            if depth == 0:
-                return raw[start:i + 1]
-
-    raise ValueError("Unclosed JSON object in moderation response")
-
-
-def _parse_llm_json(raw: str) -> dict:
-    """Parse LLM JSON, repairing common trailing-text failures."""
-    raw = raw.strip()
-
-    if raw.startswith("```"):
-        raw = "\n".join(
-            line for line in raw.splitlines()
-            if not line.strip().startswith("```")
-        ).strip()
-
-    try:
-        return json.loads(raw)
-    except json.JSONDecodeError:
-        extracted = _extract_first_json_object(raw)
-        return json.loads(extracted)
 
 
 def _character_dir() -> Path:
@@ -244,7 +188,7 @@ def _classify_intent(question: str, submission: dict) -> dict:
         response.raise_for_status()
 
         raw = response.json()["message"]["content"].strip()
-        return _parse_llm_json(raw)
+        return parse_llm_json(raw)
 
     except (RequestException, json.JSONDecodeError, ValueError) as exc:
         # LLM classification failed — return a safe pass with the flag set.
@@ -360,18 +304,15 @@ def run(artifact: dict) -> dict:
     artifact.setdefault("scores", {})["moderation"] = result
     artifact["submission"]["retrieval_mode"] = retrieval_mode
 
-    print("=" * 72)
-    print("DEBUG MODERATION.run")
-    print("question:", question)
-    print("classification.retrieval_mode:", retrieval_mode)
-    print(
-        "submission.retrieval_mode:",
-        artifact["submission"].get("retrieval_mode"),
+    logger.debug(
+        "moderation.run | question=%r retrieval_mode=%r scope=%r "
+        "intent=%r decision=%r",
+        question,
+        retrieval_mode,
+        classification.get("scope"),
+        classification.get("intent"),
+        decision,
     )
-    print("scope:", classification.get("scope"))
-    print("intent:", classification.get("intent"))
-    print("decision:", decision)
-    print("=" * 72)
 
     if flag_reason:
         artifact.setdefault("flags", {})["moderation"] = flag_reason

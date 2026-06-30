@@ -36,6 +36,8 @@ import os
 import requests
 from requests.exceptions import RequestException
 
+from .json_utils import parse_llm_json
+
 # =============================================================
 # Configuration
 # =============================================================
@@ -242,16 +244,6 @@ a "wrong_episode" flag with severity "critical" and pass_recommendation
     ]
 
 
-def _parse_response(raw: str) -> dict:
-    cleaned = raw.strip()
-    if cleaned.startswith("```"):
-        cleaned = "\n".join(
-            line for line in cleaned.splitlines()
-            if not line.strip().startswith("```")
-        )
-    return json.loads(cleaned)
-
-
 def _call_ollama(messages: list[dict]) -> str:
     response = requests.post(
         OLLAMA_URL,
@@ -362,7 +354,7 @@ def run(artifact: dict) -> dict:
                 "fact_critique_raw_response"] = raw
             artifact["diagnostics"]["fact_critique_parse_succeeded"] = False
 
-        critique = _parse_response(raw)
+        critique = parse_llm_json(raw)
 
         if diagnostic_mode:
             artifact["diagnostics"]["fact_critique_parse_succeeded"] = True
