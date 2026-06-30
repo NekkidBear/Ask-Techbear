@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Ask TechBear v2.7 — Pipeline Test Harness
+Ask TechBear v2.8 — Pipeline Test Harness
 Gymnarctos Studios LLC
 
 Three-pass pipeline evaluation:
@@ -15,8 +15,9 @@ Question sets are loaded from the test_questions database table when available,
 falling back to hardcoded lists if the DB is unavailable.
 
 Run from repo root:
-    python -m tests.test_pipeline [--pass a|b|c|all] [--dry-run] [--question ID]
-                                  [--verbose] [--summary]
+    python -m tests.test_pipeline [--pass a|b|c|all] [--dry-run]
+                                  [--question ID [ID ...]]
+                                  [--verbose] [--summary] [--phase PHASE]
 
 Verbosity:
     default   — phase scores, draft excerpts (300 chars), similarity scores, errors
@@ -47,17 +48,20 @@ from requests.exceptions import RequestException
 load_dotenv()
 
 # ── Logging ────────────────────────────────────────────────────────────────
-# Configured after argparse so --verbose can set DEBUG level.
-# This surfaces logger.info() / logger.warning() calls in orchestrator.py
-# (retry loop events, loop cap hits) that are otherwise silently swallowed.
+# Configured after argparse so --verbose/--summary can set the correct level.
+# configure_logging() replaces the former logging.basicConfig() call and
+# ensures SQLAlchemy suppression and structured output format are consistent
+# with the rest of the pipeline.
 logger = logging.getLogger(__name__)
 
 # ── Pipeline import ────────────────────────────────────────────────────────
 try:
     from backend.services.pipeline.orchestrator import run_pipeline as _run_pipeline
+    from backend.services.pipeline.logging_config import configure_logging
     _PIPELINE_AVAILABLE = True
 except ImportError:
     _run_pipeline = None  # type: ignore[assignment]
+    configure_logging = None  # type: ignore[assignment]
     _PIPELINE_AVAILABLE = False
 
 # ── DB import — optional, graceful fallback ────────────────────────────────
@@ -126,6 +130,7 @@ _EMERGENCY_FALLBACK: dict[str, list[dict]] = {
 # =============================================================================
 
 async def _load_from_db(pass_label: str) -> list[dict] | None:
+    """Load test questions from the database for the given pass label."""
     if not _DB_AVAILABLE:
         return None
     try:
@@ -367,7 +372,6 @@ def run_question(
         "question": q["question"],
         "source": f"test_{pass_label}",
         "expected_scope": q.get("expected_scope", "IN_SCOPE"),
-        # ← here
         "expected_retrieval_mode": q.get("expected_retrieval_mode", "factual"),
         "conversation_depth": 0,
         "rolling_context": "",
@@ -375,7 +379,7 @@ def run_question(
         "diagnostic_mode": True,
     }
 
-    result = {
+    result: dict = {
         "id": q["id"],
         "pass": pass_label,
         "question": q["question"],
@@ -415,6 +419,7 @@ def run_question(
             # Pipeline halted cleanly at requested phase — treat as partial complete
             result["pipeline_result"] = f"stopped_after_{phase_stop}"
             return result
+
         result["pipeline_result"] = "complete" if artifact.get(
             "passed") else "halted"
         result["pipeline_error"] = artifact.get("failure_reason")
@@ -436,7 +441,6 @@ def run_question(
             "voice_count": len(voice_chunks),
             "lore_count": len(lore_chunks),
             "retrieval_error": artifact.get("flags", {}).get("retrieval_error"),
-            # Full chunk data included — use --verbose in summary to display it
             "facts_chunks": facts_chunks if verbose else [],
             "lore_chunks": lore_chunks if verbose else [],
             "voice_chunks": voice_chunks if verbose else [],
@@ -485,171 +489,209 @@ def run_question(
 # =============================================================================
 
 def _summary_line(r: dict) -> str:
-    """One-line summary for --summary mode."""
-    status = r.get("pipeline_result", "?")
+    """One-line summary for --summary mode. Defensive against None scores."""
+    status = r.get("pipeline_result") or "?"
     routing = r.get("actual_retrieval_mode") or "?"
-    expected = r.get("expected_retrieval_mode", "")
+    expected = r.get("expected_retrieval_mode") or ""
     routing_flag = f"⚠{expected}→{routing}" if r.get(
         "routing_mismatch") else routing
 
-    scores = r.get("scores", {})
-    fc = scores.get("fact_critique", {})
-    cc = scores.get("character_critique", {})
+    scores = r.get("scores") or {}
+    fc = scores.get("fact_critique") or {}
+    cc = scores.get("character_critique") or {}
 
     score_parts = []
-    if fc.get("accuracy_score") is not None:
-        score_parts.append(f"acc={fc['accuracy_score']}")
-    if cc.get("character_fidelity_score") is not None:
-        score_parts.append(f"fid={cc['character_fidelity_score']}")
-    if r.get("similarity", {}).get("lore_recall"):
-        lr = r["similarity"]["lore_recall"]
-        score_parts.append(f"lore={lr['lore_score']}/5")
+    acc = fc.get("accuracy_score")
+    if acc is not None:
+        score_parts.append(f"acc={acc}")
+    fid = cc.get("character_fidelity_score")
+    if fid is not None:
+        score_parts.append(f"fid={fid}")
+    lr = (r.get("similarity") or {}).get("lore_recall")
+    if lr:
+        score_parts.append(f"lore={lr.get('lore_score', '?')}/5")
 
     score_str = " ".join(score_parts) if score_parts else "—"
 
     error_str = ""
-    if r.get("pipeline_error"):
-        # Trim to the most informative part
-        err = str(r["pipeline_error"] or "")
+    err = str(r.get("pipeline_error") or "")
+    if err:
         error_str = f" | {err[:60]}" if len(err) > 60 else f" | {err}"
 
     return (
-        f"{r['id']:<12} {status:<10} {routing_flag:<14} {score_str}{error_str}"
+        f"{r.get('id', '?'):<12} {status:<10} {routing_flag:<14} {score_str}{error_str}"
     )
 
 
 def write_summary(results: list[dict], output_path: Path, verbose: bool = False) -> None:
-    """Write human-readable summary. Respects verbose flag for extra detail."""
+    """Write human-readable summary. Defensive against None values throughout."""
     lines = [
-        "Ask TechBear v2.7 — Pipeline Test Summary",
+        "Ask TechBear v2.8 — Pipeline Test Summary",
         f"Generated: {datetime.now(timezone.utc).isoformat()}",
         "=" * 60,
         "",
     ]
 
-    for r in results:
-        lines.append(f"[{r['pass']}] {r['id']} — {r['pipeline_result']}")
-        if r.get("category"):
-            lines.append(f"  Category: {r['category']}")
-        if r.get("source_post"):
-            lines.append(f"  Source: {r['source_post'][:65]}")
-        lines.append(f"  Q: {r['question'][:100]}...")
+    try:
+        for r in results:
+            _append_result_block(lines, r, verbose)
 
-        if r.get("routing_mismatch"):
-            lines.append(f"  ⚠ ROUTING MISMATCH: {r['routing_mismatch']}")
+        # Aggregate
+        lines.append("=" * 60)
+        lines.append("AGGREGATE")
+        _append_aggregate(lines, results)
 
-        # Retrieval diagnostics — always show counts
-        rd = r.get("retrieval_diagnostics", {})
-        if rd:
-            mode = rd.get("retrieval_mode", "?")
-            counts = (
-                f"facts={rd.get('facts_count', 0)} "
-                f"lore={rd.get('lore_count', 0)} "
-                f"voice={rd.get('voice_count', 0)}"
-            )
-            lines.append(f"  Retrieval: mode={mode} | {counts}")
-            if rd.get("retrieval_error"):
-                lines.append(f"  ⚠ Retrieval error: {rd['retrieval_error']}")
-
-            if verbose and rd.get("lore_chunks"):
-                lines.append("  Lore chunks retrieved:")
-                for i, chunk in enumerate(rd["lore_chunks"], 1):
-                    meta = chunk.get("meta", {})
-                    lines.append(
-                        f"    [{i}] tier={meta.get('lore_tier', '?')} "
-                        f"src={meta.get('source', '?')[:50]}"
-                    )
-                    lines.append(f"        {chunk.get('text', '')[:120]}...")
-
-        if r.get("pipeline_error"):
-            lines.append(f"  ERROR: {r.get('pipeline_error')}")
-
-        # Moderation diagnostics in verbose mode
-        if verbose:
-            diag = r.get("diagnostics", {})
-            if diag.get("moderation_raw_response"):
-                parse_ok = diag.get("moderation_parse_succeeded", "?")
-                lines.append(f"  Moderation parse succeeded: {parse_ok}")
-                lines.append(
-                    f"  Moderation raw response: {diag['moderation_raw_response'][:300]}"
-                )
-            if diag.get("fact_critique_raw_response"):
-                fc_parse = diag.get("fact_critique_parse_succeeded", "?")
-                lines.append(f"  Fact critique parse succeeded: {fc_parse}")
-                if not fc_parse:
-                    lines.append(
-                        f"  Fact critique raw: {diag['fact_critique_raw_response'][:300]}"
-                    )
-
-        if r.get("voice_draft"):
-            lines.append(
-                f"  Voice draft ({len(r['voice_draft'].split())} words):")
-            excerpt_len = 600 if verbose else 300
-            lines.append(f"    {r['voice_draft'][:excerpt_len]}...")
-
-        lc = r.get("loop_counts", {})
-        if lc:
-            lines.append(
-                f"  Loop counts: factual={lc.get('factual', 0)} voice={lc.get('voice', 0)}"
-            )
-
-        sim = r.get("similarity", {})
-        if sim.get("surface"):
-            s = sim["surface"]
-            lines.append(
-                f"  Surface similarity: avg={s['average']} | "
-                f"claims≥60: {s['claims_above_60']}/{len(s['per_claim'])} | "
-                f"claims≥80: {s['claims_above_80']}/{len(s['per_claim'])}"
-            )
-            if verbose:
-                for cp in s["per_claim"]:
-                    lines.append(f"    {cp['score']:3d}  {cp['claim']}")
-        if sim.get("semantic") and sim["semantic"].get("overall_score") is not None:
-            lines.append(
-                f"  Semantic similarity: {sim['semantic']['overall_score']}/10 — "
-                f"{sim['semantic'].get('summary', '')}"
-            )
-        if sim.get("lore_recall"):
-            lr = sim["lore_recall"]
-            lines.append(
-                f"  Lore recall: {lr['lore_score']}/5 "
-                f"(claims hit: {lr['claims_hit']}/{lr['total_claims']})"
-            )
-
-        scores = r.get("scores", {})
-        if scores.get("fact_critique"):
-            fc = scores["fact_critique"]
-            lines.append(
-                f"  Fact critique: accuracy={fc.get('accuracy_score')} "
-                f"safety={fc.get('safety_score')} "
-                f"rec={fc.get('pass_recommendation')} "
-                f"[{fc.get('critique_mode', 'factual')} mode]"
-            )
-        if scores.get("character_critique"):
-            cc = scores["character_critique"]
-            lines.append(
-                f"  Character critique: fidelity={cc.get('character_fidelity_score')} "
-                f"anti_formulaic={cc.get('anti_formulaic_score')} "
-                f"words={cc.get('word_count')}"
-            )
-        if scores.get("editorial_critique"):
-            ec = scores["editorial_critique"]
-            fk = ec.get("flesch_kincaid", {})
-            lines.append(
-                f"  Editorial critique: clarity={ec.get('clarity_score')} "
-                f"FK={fk.get('flesch_kincaid_score')} (in range: {fk.get('in_range')})"
-            )
-
+    except Exception as exc:  # pylint: disable=broad-exception-caught
+        # Reporting failure must not abort the run or lose the JSON artifact.
+        # Mark the summary as incomplete rather than crashing.
+        logger.error(
+            "write_summary | reporting failure — summary may be incomplete | error=%r",
+            str(exc),
+        )
         lines.append("")
+        lines.append(f"⚠ SUMMARY INCOMPLETE — reporting error: {exc}")
+        lines.append("Full results preserved in JSON artifact.")
 
-    # Aggregate
-    lines.append("=" * 60)
-    lines.append("AGGREGATE")
+    output_path.write_text("\n".join(lines), encoding="utf-8")
+
+
+def _append_result_block(lines: list[str], r: dict, verbose: bool) -> None:
+    """Append one question result block to the summary lines list."""
+    pipeline_result = r.get("pipeline_result") or "?"
+    lines.append(
+        f"[{r.get('pass', '?')}] {r.get('id', '?')} — {pipeline_result}")
+
+    if r.get("category"):
+        lines.append(f"  Category: {r['category']}")
+    if r.get("source_post"):
+        lines.append(f"  Source: {str(r['source_post'])[:65]}")
+
+    question = str(r.get("question") or "")
+    lines.append(f"  Q: {question[:100]}...")
+
+    if r.get("routing_mismatch"):
+        lines.append(f"  ⚠ ROUTING MISMATCH: {r['routing_mismatch']}")
+
+    # Retrieval diagnostics — always show counts
+    rd = r.get("retrieval_diagnostics") or {}
+    if rd:
+        mode = rd.get("retrieval_mode") or "?"
+        counts = (
+            f"facts={rd.get('facts_count', 0)} "
+            f"lore={rd.get('lore_count', 0)} "
+            f"voice={rd.get('voice_count', 0)}"
+        )
+        lines.append(f"  Retrieval: mode={mode} | {counts}")
+        if rd.get("retrieval_error"):
+            lines.append(f"  ⚠ Retrieval error: {rd['retrieval_error']}")
+
+        if verbose and rd.get("lore_chunks"):
+            lines.append("  Lore chunks retrieved:")
+            for i, chunk in enumerate(rd["lore_chunks"], 1):
+                meta = chunk.get("meta") or {}
+                lines.append(
+                    f"    [{i}] tier={meta.get('lore_tier', '?')} "
+                    f"src={str(meta.get('source', '?'))[:50]}"
+                )
+                lines.append(f"        {str(chunk.get('text', ''))[:120]}...")
+
+    if r.get("pipeline_error"):
+        lines.append(f"  ERROR: {r.get('pipeline_error')}")
+
+    # Moderation diagnostics in verbose mode
+    if verbose:
+        diag = r.get("diagnostics") or {}
+        if diag.get("moderation_raw_response"):
+            parse_ok = diag.get("moderation_parse_succeeded", "?")
+            lines.append(f"  Moderation parse succeeded: {parse_ok}")
+            lines.append(
+                f"  Moderation raw response: {str(diag['moderation_raw_response'])[:300]}"
+            )
+        if diag.get("fact_critique_raw_response"):
+            fc_parse = diag.get("fact_critique_parse_succeeded", "?")
+            lines.append(f"  Fact critique parse succeeded: {fc_parse}")
+            if not fc_parse:
+                lines.append(
+                    f"  Fact critique raw: {str(diag['fact_critique_raw_response'])[:300]}"
+                )
+
+    if r.get("voice_draft"):
+        lines.append(
+            f"  Voice draft ({len(str(r['voice_draft']).split())} words):")
+        excerpt_len = 600 if verbose else 300
+        lines.append(f"    {str(r['voice_draft'])[:excerpt_len]}...")
+
+    lc = r.get("loop_counts") or {}
+    if lc:
+        lines.append(
+            f"  Loop counts: factual={lc.get('factual', 0)} voice={lc.get('voice', 0)}"
+        )
+
+    sim = r.get("similarity") or {}
+    if sim.get("surface"):
+        s = sim["surface"]
+        per_claim = s.get("per_claim") or []
+        lines.append(
+            f"  Surface similarity: avg={s.get('average', '?')} | "
+            f"claims≥60: {s.get('claims_above_60', 0)}/{len(per_claim)} | "
+            f"claims≥80: {s.get('claims_above_80', 0)}/{len(per_claim)}"
+        )
+        if verbose:
+            for cp in per_claim:
+                lines.append(
+                    f"    {cp.get('score', '?'):>3}  {cp.get('claim', '')}")
+
+    sem = sim.get("semantic") or {}
+    if sem.get("overall_score") is not None:
+        lines.append(
+            f"  Semantic similarity: {sem['overall_score']}/10 — "
+            f"{sem.get('summary', '')}"
+        )
+
+    lr = sim.get("lore_recall")
+    if lr:
+        lines.append(
+            f"  Lore recall: {lr.get('lore_score', '?')}/5 "
+            f"(claims hit: {lr.get('claims_hit', 0)}/{lr.get('total_claims', 0)})"
+        )
+
+    scores = r.get("scores") or {}
+    fc = scores.get("fact_critique") or {}
+    if fc:
+        lines.append(
+            f"  Fact critique: accuracy={fc.get('accuracy_score', '?')} "
+            f"safety={fc.get('safety_score', '?')} "
+            f"rec={fc.get('pass_recommendation', '?')} "
+            f"[{fc.get('critique_mode', 'factual')} mode]"
+        )
+    cc = scores.get("character_critique") or {}
+    if cc:
+        lines.append(
+            f"  Character critique: fidelity={cc.get('character_fidelity_score', '?')} "
+            f"anti_formulaic={cc.get('anti_formulaic_score', '?')} "
+            f"words={cc.get('word_count', '?')}"
+        )
+    ec = scores.get("editorial_critique") or {}
+    if ec:
+        fk = ec.get("flesch_kincaid") or {}
+        lines.append(
+            f"  Editorial critique: clarity={ec.get('clarity_score', '?')} "
+            f"FK={fk.get('flesch_kincaid_score', '?')} "
+            f"(in range: {fk.get('in_range', '?')})"
+        )
+
+    lines.append("")
+
+
+def _append_aggregate(lines: list[str], results: list[dict]) -> None:
+    """Append aggregate statistics block to the summary lines list."""
     total = len(results)
-    complete = sum(1 for r in results if r["pipeline_result"] == "complete")
-    halted = sum(1 for r in results if r["pipeline_result"] == "halted")
-    errors = sum(1 for r in results if r["pipeline_result"] == "exception")
+    complete = sum(1 for r in results if r.get(
+        "pipeline_result") == "complete")
+    halted = sum(1 for r in results if r.get("pipeline_result") == "halted")
+    errors = sum(1 for r in results if r.get("pipeline_result") == "exception")
     routing_mismatches = sum(1 for r in results if r.get("routing_mismatch"))
+
     lines.append(
         f"Total: {total} | Complete: {complete} | Halted: {halted} | Errors: {errors}"
     )
@@ -659,52 +701,57 @@ def write_summary(results: list[dict], output_path: Path, verbose: bool = False)
     # Retrieval summary
     lore_zero = [
         r for r in results
-        if r.get("retrieval_diagnostics", {}).get("lore_count", 0) == 0
+        if (r.get("retrieval_diagnostics") or {}).get("lore_count", 0) == 0
         and r.get("category") in ("lore", "tall_tale")
     ]
     if lore_zero:
-        ids = ", ".join(r["id"] for r in lore_zero)
+        ids = ", ".join(str(r.get("id", "?")) for r in lore_zero)
         lines.append(f"Lore questions with zero lore chunks: {ids}")
 
     # Pass B similarity
-    b_results = [r for r in results if r["pass"]
-                 == "B" and r.get("similarity")]
+    b_results = [
+        r for r in results
+        if r.get("pass") == "B" and r.get("similarity")
+    ]
     if b_results:
         surface_scores = [
             r["similarity"]["surface"]["average"]
-            for r in b_results if r["similarity"].get("surface")
+            for r in b_results
+            if (r.get("similarity") or {}).get("surface")
         ]
         sem_scores = [
             r["similarity"]["semantic"]["overall_score"]
             for r in b_results
-            if r["similarity"].get("semantic", {}).get("overall_score") is not None
+            if (r.get("similarity") or {}).get("semantic", {}).get("overall_score") is not None
         ]
         if surface_scores:
             lines.append(
-                f"Pass B avg surface similarity: {round(sum(surface_scores)/len(surface_scores), 1)}")
+                f"Pass B avg surface similarity: "
+                f"{round(sum(surface_scores)/len(surface_scores), 1)}"
+            )
         if sem_scores:
             lines.append(
-                f"Pass B avg semantic similarity: {round(sum(sem_scores)/len(sem_scores), 1)}/10")
+                f"Pass B avg semantic similarity: "
+                f"{round(sum(sem_scores)/len(sem_scores), 1)}/10"
+            )
 
     # Pass C lore recall
     c_results = [
         r for r in results
-        if r["pass"] == "C" and r.get("similarity", {}).get("lore_recall")
+        if r.get("pass") == "C" and (r.get("similarity") or {}).get("lore_recall")
     ]
     if c_results:
         avg_lore = sum(
-            r["similarity"]["lore_recall"]["lore_score"] for r in c_results
+            r["similarity"]["lore_recall"].get("lore_score", 0) for r in c_results
         ) / len(c_results)
         lines.append(f"Pass C avg lore recall: {round(avg_lore, 1)}/5")
-
-    output_path.write_text("\n".join(lines), encoding="utf-8")
 
 
 def write_summary_oneline(results: list[dict], output_path: Path) -> None:
     """--summary mode: one line per question to stdout + summary file."""
     header = f"{'ID':<12} {'STATUS':<10} {'ROUTING':<14} SCORES / ERROR"
     lines = [
-        "Ask TechBear v2.7 — Pipeline Test Summary (one-line)",
+        "Ask TechBear v2.8 — Pipeline Test Summary (one-line)",
         f"Generated: {datetime.now(timezone.utc).isoformat()}",
         "=" * 72,
         header,
@@ -715,7 +762,8 @@ def write_summary_oneline(results: list[dict], output_path: Path) -> None:
     lines.append("=" * 72)
 
     total = len(results)
-    complete = sum(1 for r in results if r["pipeline_result"] == "complete")
+    complete = sum(1 for r in results if r.get(
+        "pipeline_result") == "complete")
     errors = total - complete
     lines.append(
         f"Total: {total}  Complete: {complete}  Errors/Halted: {errors}")
@@ -731,7 +779,7 @@ def write_summary_oneline(results: list[dict], output_path: Path) -> None:
 
 def main() -> None:  # pylint: disable=missing-function-docstring
     parser = argparse.ArgumentParser(
-        description="Ask TechBear v2.7 pipeline test harness"
+        description="Ask TechBear v2.8 pipeline test harness"
     )
     parser.add_argument(
         "--pass",
@@ -747,9 +795,14 @@ def main() -> None:  # pylint: disable=missing-function-docstring
     )
     parser.add_argument(
         "--question",
-        dest="question_id",
+        dest="question_ids",
+        nargs="+",
         default=None,
-        help="Run a single question by ID (e.g. db_003, corpus_002, lore_001)",
+        metavar="ID",
+        help=(
+            "Run one or more questions by ID "
+            "(e.g. --question lore_002 lore_006 lore_004)"
+        ),
     )
     parser.add_argument(
         "--verbose",
@@ -778,38 +831,43 @@ def main() -> None:  # pylint: disable=missing-function-docstring
     )
     args = parser.parse_args()
 
-    # Configure logging — DEBUG surfaced only with --verbose
-    logging.basicConfig(
-        level=logging.DEBUG if args.verbose else logging.WARNING,
-        format="%(name)s %(levelname)s %(message)s",
-    )
-    # Suppress SQLAlchemy engine chatter (connection events, raw SQL) unless
-    # --verbose is active. Without this, DB queries interleave with stage output.
-    if not args.verbose:
-        logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    # Configure logging via logging_config — replaces logging.basicConfig().
+    # summary mode uses standard (INFO) so phase chatter doesn't interleave
+    # with the one-line output. verbose uses verbose (DEBUG).
+    verbosity = "verbose" if args.verbose else "standard"
+    if configure_logging is not None:
+        configure_logging(verbosity=verbosity, file_logging=True)
+    else:
+        # Pipeline unavailable — minimal fallback so error messages still surface
+        logging.basicConfig(
+            level=logging.DEBUG if args.verbose else logging.WARNING,
+            format="%(name)s %(levelname)s %(message)s",
+        )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp: str = datetime.now().strftime("%Y%m%d_%H%M%S")
 
     questions_to_run: list[tuple[dict, str]] = []
 
-    if args.question_id:
+    if args.question_ids:
         # Build lookup from all available questions across all passes
         _all_loaded = {
             "A": load_questions("A"),
             "B": load_questions("B"),
             "C": load_questions("C"),
         }
-        all_q = {}
+        all_q: dict[str, tuple[dict, str]] = {}
         for _pass_label, _qs in _all_loaded.items():
             for _q in _qs:
                 all_q[_q["id"]] = (_q, _pass_label)
-        if args.question_id not in all_q:
-            print(f"Unknown question ID: {args.question_id}")
+
+        unknown = [qid for qid in args.question_ids if qid not in all_q]
+        if unknown:
+            print(f"Unknown question ID(s): {', '.join(unknown)}")
             print(f"Available: {list(all_q.keys())}")
             sys.exit(1)
-        q, p = all_q[args.question_id]
-        questions_to_run = [(q, p)]
+
+        questions_to_run = [all_q[qid] for qid in args.question_ids]
     else:
         if args.run_pass in ("a", "all"):
             questions_to_run += [(q, "A") for q in load_questions("A")]
@@ -831,16 +889,24 @@ def main() -> None:  # pylint: disable=missing-function-docstring
     for i, (q, p) in enumerate(questions_to_run, 1):
         if not args.summary:
             print(
-                f"[{i}/{len(questions_to_run)}] {q['id']} ({p})  {q['question'][:60]}...")
-        r = run_question(q, p, dry_run=args.dry_run,
-                         verbose=args.verbose, phase_stop=args.phase_stop)
+                f"[{i}/{len(questions_to_run)}] {q['id']} ({p})  "
+                f"{q['question'][:60]}..."
+            )
+        r = run_question(
+            q, p,
+            dry_run=args.dry_run,
+            verbose=args.verbose,
+            phase_stop=args.phase_stop,
+        )
         results.append(r)
 
         if not args.summary:
-            status = r["pipeline_result"]
-            routing = f" ⚠ routing={r['routing_mismatch']}" if r.get(
-                "routing_mismatch") else ""
-            rd = r.get("retrieval_diagnostics", {})
+            status = r.get("pipeline_result") or "?"
+            routing = (
+                f" ⚠ routing={r['routing_mismatch']}"
+                if r.get("routing_mismatch") else ""
+            )
+            rd = r.get("retrieval_diagnostics") or {}
             chunk_info = (
                 f" [facts={rd.get('facts_count', 0)} "
                 f"lore={rd.get('lore_count', 0)} "
@@ -848,15 +914,16 @@ def main() -> None:  # pylint: disable=missing-function-docstring
             ) if rd else ""
             print(f"  → {status}{routing}{chunk_info}")
             if r.get("pipeline_error"):
-                print(f"  ⚠ {(r['pipeline_error'] or '')[:100]}")
+                print(f"  ⚠ {str(r.get('pipeline_error') or '')[:100]}")
             print()
 
     json_path = OUTPUT_DIR / f"pipeline_test_results_{timestamp}.json"
     summary_path = OUTPUT_DIR / f"pipeline_test_summary_{timestamp}.txt"
 
     # Always write full JSON (chunk data included if verbose)
-    json_path.write_text(json.dumps(
-        results, indent=2, ensure_ascii=False), encoding="utf-8")
+    json_path.write_text(
+        json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
     if args.summary:
         write_summary_oneline(results, summary_path)
