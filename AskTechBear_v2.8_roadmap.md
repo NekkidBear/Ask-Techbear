@@ -1,3 +1,4 @@
+<!-- markdownlint-disable MD024 MD025 -->
 # Ask TechBear v2.8 — Stabilization, Corpus, and Editorial Quality
 
 _Gymnarctos Studios LLC_
@@ -49,16 +50,16 @@ Known gaps shipped with human-review coverage:
 
 ---
 
-# Priority 1 — Stability and Developer Experience
+## Priority 1 — Stability and Developer Experience
 
-## 1. Logging Cleanup
+### 1. Logging Cleanup
 
-### Problem
+#### Problem
 
 DEBUG print() statements remain in moderation.py and orchestrator.py from
 development. These interleave with stage output in all modes including --summary.
 
-### Requirements
+#### Requirements
 
 Standard mode: stage progress only, minimal output.
 Summary mode: one-line result per question, aggregate statistics.
@@ -66,7 +67,7 @@ Verbose mode: SQLAlchemy logs, retrieval diagnostics, retry activity,
 critique flags, routing decisions, raw moderation output.
 Debug mode (optional): full prompts, raw model responses, stack traces.
 
-### Implementation
+#### Implementation
 
 - Replace print() diagnostics in moderation.py and orchestrator.py with logger.debug()
 - Centralized logger configuration
@@ -76,19 +77,19 @@ Debug mode (optional): full prompts, raw model responses, stack traces.
 
 ---
 
-## 2. Multi-Question Test Execution
+### 2. Multi-Question Test Execution
 
-### Current State
+#### Current State
 
 --question flag accepts only a single ID.
 
-### Goal
+#### Goal
 
-```
+```text
 python -m tests.test_pipeline --question lore_002 lore_006 lore_004
 ```
 
-### Implementation
+#### Implementation
 
 - argparse nargs='+' on --question argument
 - questions_to_run construction handles list
@@ -96,21 +97,21 @@ python -m tests.test_pipeline --question lore_002 lore_006 lore_004
 
 ---
 
-## 3. Improved Retry Visibility
+### 3. Improved Retry Visibility
 
-### Goal
+#### Goal
 
 Expose retry behavior clearly in verbose output.
 
-### Example output
+#### Example Output
 
-```
+```text
 factual_pass retry 1/2
   accuracy: 0 → 9
   trigger: wrong_episode flag from fact_critique
 ```
 
-### Capture
+#### Captured Fields
 
 - Retry count
 - Score before and after retry
@@ -118,9 +119,9 @@ factual_pass retry 1/2
 
 ---
 
-## 4. Fault-Tolerant Reporting
+### 4. Fault-Tolerant Reporting
 
-### Problem
+#### Problem
 
 Formatting bugs can make successful runs appear failed.
 NoneType.**format** in \_summary_line() — partially fixed in v2.7 for
@@ -129,7 +130,7 @@ routing_flag; full audit needed for all formatted fields.
 corpus_002 safety_score=None propagating into halt reason string —
 fixed in fact_critique.py v2.7; confirm no other None-propagation paths.
 
-### Requirements
+#### Requirements
 
 - Defensive formatting on all score fields in \_summary_line() and write_summary()
 - Safe summary generation — reporting failure must not abort the run
@@ -138,25 +139,25 @@ fixed in fact_critique.py v2.7; confirm no other None-propagation paths.
 
 ---
 
-# Priority 2 — Editorial Workflow Support
+## Priority 2 — Editorial Workflow Support
 
-## 5. Editorial Readiness Scoring
+### 5. Editorial Readiness Scoring
 
-### Problem
+#### Problem
 
 Pass/fail does not reflect the actual publication workflow.
 The pipeline is permanently human-in-the-loop. "Editor effort" is
 more useful than autonomous pass/fail.
 
-### Current workflow
+#### Current Workflow
 
 Generate → Human Review → Edit if Needed → Publish
 
-### Goal
+#### Goal
 
 Separate pipeline success from publication readiness.
 
-### Proposed output fields
+#### Proposed Output Fields
 
 ```json
 {
@@ -168,7 +169,7 @@ Separate pipeline success from publication readiness.
 }
 ```
 
-### Readiness categories
+#### Readiness Categories
 
 - publish_ready — publish after normal audit
 - minor_edit — small cleanup needed
@@ -176,7 +177,7 @@ Separate pipeline success from publication readiness.
 - reject — wrong answer / major factual issue
 - technical_error — pipeline or reporting failure
 
-### Inputs
+#### Scoring Inputs
 
 - fact_critique accuracy and safety scores
 - character_critique fidelity and anti_formulaic scores
@@ -187,7 +188,7 @@ Separate pipeline success from publication readiness.
 - episode_context.episode_isolated (lore mode)
 - lore recall score when available
 
-### Benefits
+#### Benefits
 
 - Tracks editor effort over time
 - Supports human-in-the-loop publishing workflow
@@ -196,36 +197,36 @@ Separate pipeline success from publication readiness.
 
 ---
 
-## 6. Live Mode vs Batch Mode Profiles
+### 6. Live Mode vs Batch Mode Profiles
 
-### Problem
+#### Problem
 
 Word-count failures often reflect mode mismatch rather than quality failures.
 The pipeline currently generates live-mode length (150–250 words) for all
 questions. Batch/publication questions need longer, richer responses.
 
-### Live Mode
+#### Live Mode
 
 Purpose: convention booth, live events, presentation support
 Targets: 150–250 words, fast generation, low latency, read-aloud friendly
 
-### Batch Mode
+#### Batch Mode
 
 Purpose: blog generation, newsletter drafts, editorial workflow
 Targets: 250–800+ words, richer explanations, higher token budget, SEO-friendly
 
-### Future Extension
+#### Future Extension
 
 Article Mode: 600–1500+ words
 
-### Implementation
+#### Implementation
 
 - generation_mode field already stubbed in v2.7 artifact output
 - character_voice.md word count targets parameterized by mode
 - test harness --mode flag to select profile per run
 - Readiness scoring (item 5) mode-aware word count evaluation
 
-### Benefits
+#### Benefits
 
 - Removes false word-count failures from benchmark results
 - Better aligns scoring with actual use case
@@ -233,11 +234,11 @@ Article Mode: 600–1500+ words
 
 ---
 
-# Priority 3 — Lore Corpus and Retrieval Quality
+## Priority 3 — Lore Corpus and Retrieval Quality
 
-## 7. Lore Bible Re-Chunking by Episode Boundary
+### 7. Lore Bible Re-Chunking by Episode Boundary
 
-### Problem
+#### Problem
 
 The lore_bible.md is currently ingested as a single document chunked by token
 count. Episode summaries span chunk boundaries, so a single retrieved chunk
@@ -249,12 +250,12 @@ outlet — are in the lore_bible Episode 2 summary section, but that section
 may share a chunk with Episode 1 or Episode 3 content depending on token
 boundaries.
 
-### Root Cause
+#### Root Cause
 
 Token-count chunking does not respect the `### Episode N` section headers
 that cleanly separate episodes in the source document.
 
-### Fix
+#### Fix
 
 Re-ingest the lore_bible split at `### Episode N —` headers rather than
 token count. Each episode section becomes one document in the lore collection,
@@ -266,14 +267,14 @@ tagged with:
 - lore_tier: canon_reference
 - retrieval_tags: from the existing tags in each episode section
 
-### Result
+#### Expected Result
 
 - lore_bible chunks are episode-scoped — no cross-episode contamination possible
 - Episode 2 summary chunk contains exactly: Nedry, security arrays, coffee
   maker outlet, torrential rain, GPS coordinates, dinosaurs
 - Episode isolation still runs as a safety net but has nothing to filter
 
-### Prerequisites
+#### Prerequisites
 
 - Identify post_id mapping for each episode (already in Techbear_lore_bios.md)
 - Update ingest script to split on episode headers before chunking
@@ -282,9 +283,9 @@ tagged with:
 
 ---
 
-## 8. Episode-Targeted Secondary Retrieval
+### 8. Episode-Targeted Secondary Retrieval
 
-### Problem
+#### Problem
 
 Even with correct episode routing, semantic similarity retrieval returns only
 the top-k chunks by cosine similarity. The key episode facts may rank below
@@ -294,7 +295,7 @@ lore_004 (Jurassic Park) retrieved only 2 episode-specific chunks after
 isolation removed the lore_bible contamination. The Nedry/security arrays
 facts were not in those 2 chunks.
 
-### Fix
+#### Fix
 
 Two-stage retrieval for lore mode when a dominant episode is identified:
 
@@ -308,14 +309,14 @@ with k=10 or higher, pulling all chunks from that episode post
 Deduplication: merge Stage 1 and Stage 2 results, deduplicate by chunk ID,
 pass combined set to factual pass.
 
-### Prerequisites
+#### Prerequisites
 
 - Episode isolation already identifies dominant_post_id (v2.7)
 - Requires post_id metadata on WordPress episode chunks (already present)
 - Lore bible re-chunking (item 7) ensures lore_bible chunks also have post_id
 - ChromaDB where clause filtering (already supported)
 
-### Result
+#### Expected Result
 
 - All episode narrative chunks available to the factual pass regardless of
   semantic similarity ranking
@@ -323,14 +324,14 @@ pass combined set to factual pass.
 
 ---
 
-## 9. Episode Isolation Validation in Test Harness
+### 9. Episode Isolation Validation in Test Harness
 
-### Problem
+#### Problem
 
 episode_context is stored in the artifact but not yet surfaced in test
 harness summary output or benchmark reporting.
 
-### Goal
+#### Goal
 
 - Add episode_context to retrieval_diagnostics in test harness output
 - Report in verbose summary: episode_isolated, dominant post_id, chunks_removed
@@ -339,7 +340,7 @@ harness summary output or benchmark reporting.
 - Add episode_id field to test_questions.json for Pass C questions so
   the harness can validate dominant_post_id against expected episode
 
-### Benefits
+#### Benefits
 
 - Episode contamination becomes a directly measurable metric
 - Catches wrong-episode answers that pass fact_critique (lore relevance check
@@ -347,20 +348,20 @@ harness summary output or benchmark reporting.
 
 ---
 
-## 10. Lore Relevance Judge (Phase A)
+### 10. Lore Relevance Judge (Phase A)
 
-### Prerequisite
+#### Prerequisite
 
 Pass C benchmark data confirming retrieval works reliably after items 7 and 8.
 
-### Problem
+#### Problem
 
 Current judges evaluate "Is this valid lore?" but not "Is this the lore the
 user asked about?" The episode relevance check in fact_critique (v2.7) catches
 wrong-episode answers during generation. A dedicated lore judge evaluates the
 final voice draft with full episode context.
 
-### Goal
+#### Goal
 
 Phase A: pipeline critique phase between character_critique and editorial_pass
 for lore-routed responses (mistral:latest).
@@ -374,7 +375,7 @@ Evaluates:
 Scoring: extends lore_recall 0–5 rubric with judge-confirmed claims
 rather than surface proxy.
 
-### Phase B (future)
+#### Phase B (Deferred)
 
 Editorial tool for new Multiverse episode drafts.
 Claude API for source IP plausibility checking.
@@ -382,18 +383,18 @@ Prerequisite: Phase A data confirming retrieval works reliably.
 
 ---
 
-# Priority 4 — Moderation and Judge Robustness
+## Priority 4 — Moderation and Judge Robustness
 
-## 11. Shared JSON Recovery Utility
+### 11. Shared JSON Recovery Utility
 
-### Problem
+#### Problem
 
 JSON recovery logic is currently duplicated across moderation.py
 (\_parse_llm_json, \_extract_first_json_object) and fact_critique.py
 (\_parse_response). Each phase has its own variant with slightly
 different error handling.
 
-### Goal
+#### Goal
 
 Extract shared utility to backend/services/pipeline/json_utils.py:
 
@@ -408,15 +409,17 @@ def extract_first_json_object(raw: str) -> str:
 Import in all phases. Consistent behavior across moderation, fact_critique,
 character_critique, editorial phases.
 
-### Status
+#### Status
 
 Prototype identified during v2.7 debugging. Consolidation deferred to v2.8.
 
 ---
 
-## 12. Structured Parse Telemetry
+### 12. Structured Parse Telemetry
 
-### Track per phase
+#### Goal
+
+Track per phase:
 
 ```json
 {
@@ -427,7 +430,7 @@ Prototype identified during v2.7 debugging. Consolidation deferred to v2.8.
 }
 ```
 
-### Benefits
+#### Benefits
 
 - Identify which models are worst JSON producers
 - Measure prompt compliance over time
@@ -435,15 +438,15 @@ Prototype identified during v2.7 debugging. Consolidation deferred to v2.8.
 
 ---
 
-## 13. Moderation Scope Calibration
+### 13. Moderation Scope Calibration
 
-### Problem
+#### Problem
 
 All lore/tall_tale questions route OFF_TOPIC_FUN scope rather than IN_SCOPE.
 Functionally correct but test fixture expectations all say IN_SCOPE, creating
 spurious scope mismatch noise in every test run.
 
-### Fix
+#### Fix
 
 Two-part:
 
@@ -453,28 +456,28 @@ Two-part:
    character_moderation.md — TechBear's Multiverse episodes are arguably
    in-scope for a TechBear Q&A event
 
-### Note
+#### Note
 
 Routing (lore/factual/tall_tale) is correct. This is a scope label
 calibration issue only.
 
 ---
 
-# Priority 5 — Benchmarking and Evaluation
+## Priority 5 — Benchmarking and Evaluation
 
-## 14. Regression Packs
+### 14. Regression Packs
 
-### Goal
+#### Goal
 
 Named test suites runnable as a unit:
 
-```
+```text
 python -m tests.test_pipeline --suite lore_core
 python -m tests.test_pipeline --suite moderation_edge_cases
 python -m tests.test_pipeline --suite corpus_rag
 ```
 
-### Proposed suites
+#### Proposed Suites
 
 - lore_core: lore_001–lore_009
 - moderation_edge_cases: satirical submissions, helpdesk water, jailbreak attempts
@@ -484,13 +487,13 @@ python -m tests.test_pipeline --suite corpus_rag
 
 ---
 
-## 15. Failure Artifact Preservation
+### 15. Failure Artifact Preservation
 
-### Goal
+#### Goal
 
 Automatically preserve debugging artifacts for failed or human-review runs.
 
-### Save
+#### Saved Fields
 
 - Retrieval context (chunks, episode_context)
 - All drafts (factual, educational, voice)
@@ -498,11 +501,13 @@ Automatically preserve debugging artifacts for failed or human-review runs.
 - Routing decisions and moderation classification
 - Retry history and loop counts
 
-### Storage
+#### Storage Path
 
-tests/test*output/failures/{timestamp}*{question_id}/
+```text
+tests/test_output/failures/{timestamp}_{question_id}/
+```
 
-### Benefits
+#### Benefits
 
 - Easier debugging of intermittent failures
 - Historical comparison across pipeline versions
@@ -510,28 +515,28 @@ tests/test*output/failures/{timestamp}*{question_id}/
 
 ---
 
-## 16. Benchmark Expansion Before Judge Calibration
+### 16. Benchmark Expansion Before Judge Calibration
 
-### Principle (from v2.7 session)
+#### Principle
 
 Run the v2.7 benchmark first, then expand the question set to 40–50 questions
 before human-scoring, so human scores calibrate judges rather than directly
 drive prompt decisions.
 
-### Target question counts
+#### Target Question Counts
 
 - Pass A: expand from 5 to 10–15 (more observation/event categories)
 - Pass B: expand from 7 to 15–20 (more corpus questions, more satirical setups)
 - Pass C: expand from 9 to 15–20 (cover all published episodes, add multi-episode
   questions, add recurring element questions like Kevin archetype and Dax chronology)
 
-### Gate
+#### Gate
 
 Do not recalibrate judges based on small-n results. Expand question set first.
 
 ---
 
-# v2.8 Acceptance Criteria
+## v2.8 Acceptance Criteria
 
 v2.8 is complete when:
 
@@ -551,9 +556,9 @@ v2.8 is complete when:
 
 ---
 
-# Deferred to v3.x
+## Deferred to v3.x
 
-## Dynamic Freshness Search
+### Dynamic Freshness Search
 
 Trigger web search when corpus confidence is low, data is stale, or topic
 falls outside retrieval coverage.
@@ -561,24 +566,24 @@ falls outside retrieval coverage.
 Components: search integration, citation validation, freshness scoring,
 optional human review gate.
 
-## Full Lore Judge (Phase B)
+### Full Lore Judge (Phase B)
 
 Editorial tool for new Multiverse episode drafts.
 Claude API for source IP plausibility.
 Prerequisite: Phase A (item 10) data first.
 
-## Corpus Repurposing Workflow
+### Corpus Repurposing Workflow
 
 Running Jason-voice posts (IDs 725, 1071, 1255, 1758 as candidates) through
 educational and voice passes only. Deferred until voice engine is stable and
 batch mode profiles are confirmed.
 
-## pgvector Backend
+### pgvector Backend
 
 Consolidate ChromaDB into PostgreSQL via pgvector for cloud deployment.
 Prerequisite: retriever abstraction layer first.
 
-## LoRA / Fine-tuning
+### LoRA / Fine-tuning
 
 Not until sufficient human-reviewed benchmark data exists to validate.
 
