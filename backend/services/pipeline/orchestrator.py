@@ -260,6 +260,17 @@ def _run_phase_with_retry(
                 history_entry["accuracy_after"],
             )
 
+            # Preserve draft before clearing — saved to draft_history
+            # so failed attempt drafts are available for post-run diagnosis
+            current_draft = artifact["drafts"].get(draft_key)
+            if current_draft:
+                artifact.setdefault("draft_history", {}).setdefault(
+                    draft_key, []
+                ).append({
+                    "attempt": loop_count - 1,
+                    "draft": current_draft,
+                })
+
             artifact["drafts"].pop(draft_key, None)
             continue
 
@@ -321,6 +332,7 @@ def run_pipeline(
         "scores": {},
         "flags": {},
         "drafts": {},
+        "draft_history": {},
         "retrieval": {},
         "passed": True,
         "failure_reason": None,
@@ -364,6 +376,8 @@ def run_pipeline(
     # semantic_check is non-halting on its own but is re-run as part of the
     # cohort so the retry artifacts are consistent.
     voice_loop_count = 0
+    voice_retry_history: list[dict] = []
+
     while True:
         # Voice pass
         voice_stage = (
@@ -390,12 +404,43 @@ def run_pipeline(
         if loop_requested and voice_loop_count < VOICE_LOOP_CAP:
             voice_loop_count += 1
             artifact["loop_counts"]["voice"] = voice_loop_count
-            artifact["drafts"].pop("voice", None)
+
+            # Capture character critique scores for retry history
+            cc = artifact.get("scores", {}).get("character_critique", {})
+            voice_entry: dict = {
+                "retry": voice_loop_count,
+                "trigger": "character_critique",
+                "fidelity_score": cc.get("character_fidelity_score"),
+                "anti_formulaic_score": cc.get("anti_formulaic_score"),
+                "word_count": cc.get("word_count"),
+                "flags": [
+                    f.get("type") for f in
+                    artifact.get("flags", {}).get("character_critique", [])
+                    if isinstance(f, dict)
+                ],
+            }
+            voice_retry_history.append(voice_entry)
+
             logger.info(
-                "voice_pass retry %d/%d | trigger=character_critique",
+                "voice_pass retry %d/%d | trigger=character_critique "
+                "fidelity=%s anti_formulaic=%s",
                 voice_loop_count,
                 VOICE_LOOP_CAP,
+                voice_entry["fidelity_score"],
+                voice_entry["anti_formulaic_score"],
             )
+
+            # Preserve voice draft before clearing
+            current_voice = artifact["drafts"].get("voice")
+            if current_voice:
+                artifact.setdefault("draft_history", {}).setdefault(
+                    "voice", []
+                ).append({
+                    "attempt": voice_loop_count - 1,
+                    "draft": current_voice,
+                })
+
+            artifact["drafts"].pop("voice", None)
             continue
 
         if loop_requested and voice_loop_count >= VOICE_LOOP_CAP:
@@ -415,6 +460,8 @@ def run_pipeline(
         break
 
     artifact["loop_counts"]["voice"] = voice_loop_count
+    if voice_retry_history:
+        artifact.setdefault("retry_history", {})["voice"] = voice_retry_history
 
     # ── Phase 8: Editorial annotation ────────────────────
     _notify("editorial_pass")
@@ -442,5 +489,11 @@ def run_pipeline(
         artifact.get("failure_reason"),
         artifact.get("loop_counts"),
     )
+
+    # Draft history is only useful for failure diagnosis.
+    # Clear it on success to keep the artifact lean — retry_history
+    # metadata (scores, flags) is preserved for calibration signal.
+    if artifact.get("passed"):
+        artifact["draft_history"] = {}
 
     return artifact

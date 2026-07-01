@@ -438,6 +438,7 @@ def run_question(
         "flags": {},
         "loop_counts": {},
         "retry_history": {},
+        "draft_history": {},
         "similarity": {},
         "diagnostics": {},
         "ran_at": datetime.now(timezone.utc).isoformat(),
@@ -505,6 +506,7 @@ def _capture_artifact(
     result["flags"] = artifact.get("flags", {})
     result["loop_counts"] = artifact.get("loop_counts", {})
     result["retry_history"] = artifact.get("retry_history", {})
+    result["draft_history"] = artifact.get("draft_history", {})
     result["diagnostics"] = artifact.get("diagnostics", {})
 
     # Retrieval diagnostics — always captured, full chunks only in verbose JSON
@@ -769,16 +771,38 @@ def _append_result_block(lines: list[str], r: dict, verbose: bool) -> None:
     rh = r.get("retry_history") or {}
     for phase_key, retries in rh.items():
         for entry in retries:
-            lines.append(
-                f"  Retry {entry.get('retry')}/{lc.get(phase_key, '?')} "
-                f"({phase_key}) | trigger={entry.get('trigger')} | "
-                f"accuracy={entry.get('accuracy_before')}→{entry.get('accuracy_after')} "
-                f"safety={entry.get('safety_before')}→{entry.get('safety_after')}"
-            )
+            if phase_key == "voice":
+                lines.append(
+                    f"  Retry {entry.get('retry')}/{lc.get(phase_key, '?')} "
+                    f"({phase_key}) | trigger={entry.get('trigger')} | "
+                    f"fidelity={entry.get('fidelity_score')} "
+                    f"anti_formulaic={entry.get('anti_formulaic_score')} "
+                    f"words={entry.get('word_count')}"
+                )
+            else:
+                lines.append(
+                    f"  Retry {entry.get('retry')}/{lc.get(phase_key, '?')} "
+                    f"({phase_key}) | trigger={entry.get('trigger')} | "
+                    f"accuracy={entry.get('accuracy_before')}→{entry.get('accuracy_after')} "
+                    f"safety={entry.get('safety_before')}→{entry.get('safety_after')}"
+                )
             flags = entry.get("flags") or []
             if flags:
                 lines.append(
                     f"    trigger flags: {', '.join(str(f) for f in flags)}")
+
+    # Draft history — shown in verbose mode only
+    if verbose:
+        dh = r.get("draft_history") or {}
+        for draft_key, attempts in dh.items():
+            for attempt in attempts:
+                lines.append(
+                    f"  Draft history [{draft_key} attempt {attempt.get('attempt')}] "
+                    f"({len(str(attempt.get('draft', '')).split())} words):"
+                )
+                lines.append(
+                    f"    {str(attempt.get('draft', ''))[:300]}..."
+                )
 
     sim = r.get("similarity") or {}
     if sim.get("surface"):
