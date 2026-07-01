@@ -200,6 +200,9 @@ def _run_phase_with_retry(
         RuntimeError via _gate() if a phase sets passed=False
     """
     loop_count = 0
+    # Item 3: retry history — records score before/after and trigger reason
+    # for each retry. Stored in artifact["retry_history"][loop_count_key].
+    retry_history: list[dict] = []
 
     while True:
         stage_label = (
@@ -208,6 +211,16 @@ def _run_phase_with_retry(
             else f"{generation_phase_name} (retry {loop_count})"
         )
         notify(stage_label)
+
+        # Capture pre-retry score for history (attempt 2+)
+        pre_scores = None
+        if loop_count > 0:
+            fc = artifact.get("scores", {}).get("fact_critique", {})
+            pre_scores = {
+                "accuracy": fc.get("accuracy_score"),
+                "safety": fc.get("safety_score"),
+            }
+
         artifact = generation_phase.run(artifact)
         _gate(generation_phase_name, artifact)
 
@@ -219,14 +232,35 @@ def _run_phase_with_retry(
         if loop_requested and loop_count < loop_cap:
             loop_count += 1
             artifact["loop_counts"][loop_count_key] = loop_count
-            artifact["drafts"].pop(draft_key, None)
+
+            # Capture post-critique scores before clearing the draft
+            fc_after = artifact.get("scores", {}).get("fact_critique", {})
+            history_entry: dict = {
+                "retry": loop_count,
+                "trigger": critique_phase_name,
+                "accuracy_before": pre_scores.get("accuracy") if pre_scores else None,
+                "accuracy_after": fc_after.get("accuracy_score"),
+                "safety_before": pre_scores.get("safety") if pre_scores else None,
+                "safety_after": fc_after.get("safety_score"),
+                "flags": [
+                    f.get("type") for f in
+                    artifact.get("flags", {}).get("fact_critique", [])
+                    if isinstance(f, dict)
+                ],
+            }
+            retry_history.append(history_entry)
+
             logger.info(
-                "%s retry %d/%d | trigger=%s",
+                "%s retry %d/%d | trigger=%s accuracy=%s→%s",
                 generation_phase_name,
                 loop_count,
                 loop_cap,
                 critique_phase_name,
+                history_entry["accuracy_before"],
+                history_entry["accuracy_after"],
             )
+
+            artifact["drafts"].pop(draft_key, None)
             continue
 
         if loop_requested and loop_count >= loop_cap:
@@ -247,6 +281,10 @@ def _run_phase_with_retry(
         break
 
     artifact["loop_counts"][loop_count_key] = loop_count
+    # Store retry history in artifact for test harness surfacing
+    if retry_history:
+        artifact.setdefault("retry_history", {})[
+            loop_count_key] = retry_history
     return artifact
 
 
@@ -287,6 +325,7 @@ def run_pipeline(
         "passed": True,
         "failure_reason": None,
         "loop_counts": {},
+        "retry_history": {},
     }
 
     # ── Phase 1: Moderation ───────────────────────────────

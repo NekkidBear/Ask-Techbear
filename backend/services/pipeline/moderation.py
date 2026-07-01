@@ -15,7 +15,7 @@ from dotenv import load_dotenv
 from rapidfuzz import fuzz
 from requests.exceptions import RequestException
 
-from .json_utils import parse_llm_json
+from .json_utils import parse_llm_json_with_telemetry
 
 try:
     import psycopg2 as _psycopg2
@@ -188,7 +188,9 @@ def _classify_intent(question: str, submission: dict) -> dict:
         response.raise_for_status()
 
         raw = response.json()["message"]["content"].strip()
-        return parse_llm_json(raw)
+        result, telemetry = parse_llm_json_with_telemetry(raw)
+        result["_parse_telemetry"] = telemetry
+        return result
 
     except (RequestException, json.JSONDecodeError, ValueError) as exc:
         # LLM classification failed — return a safe pass with the flag set.
@@ -203,6 +205,12 @@ def _classify_intent(question: str, submission: dict) -> dict:
             "confidence": 0.5,
             "flag_reason": f"llm_classification_failed: {exc}",
             "conversation_depth_action": "proceed",
+            "_parse_telemetry": {
+                "parse_success": False,
+                "parse_repaired": False,
+                "parse_failed": True,
+                "repair_method": None,
+            },
         }
 
 
@@ -279,6 +287,14 @@ def run(artifact: dict) -> dict:
         artifact["diagnostics"]["moderation_parse_succeeded"] = (
             not parse_failed
         )
+
+        # Item 12: structured parse telemetry
+        parse_telemetry = classification.pop("_parse_telemetry", None)
+        if parse_telemetry:
+            artifact["diagnostics"]["moderation_parse_telemetry"] = parse_telemetry
+    else:
+        # Always pop telemetry key even outside diagnostic mode
+        classification.pop("_parse_telemetry", None)
 
     decision = classification.get("decision", "pass")
     flag_reason = classification.get("flag_reason")

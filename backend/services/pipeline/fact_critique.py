@@ -36,7 +36,7 @@ import os
 import requests
 from requests.exceptions import RequestException
 
-from .json_utils import parse_llm_json
+from .json_utils import parse_llm_json_with_telemetry
 
 # =============================================================
 # Configuration
@@ -354,16 +354,24 @@ def run(artifact: dict) -> dict:
                 "fact_critique_raw_response"] = raw
             artifact["diagnostics"]["fact_critique_parse_succeeded"] = False
 
-        critique = parse_llm_json(raw)
+        critique, parse_telemetry = parse_llm_json_with_telemetry(raw)
 
         if diagnostic_mode:
             artifact["diagnostics"]["fact_critique_parse_succeeded"] = True
+            # Item 12: structured parse telemetry
+            artifact["diagnostics"]["fact_critique_parse_telemetry"] = parse_telemetry
 
     except (RequestException, json.JSONDecodeError, ValueError) as exc:
         if diagnostic_mode and raw is not None:
             artifact.setdefault("diagnostics", {})[
                 "fact_critique_raw_response"] = raw
             artifact["diagnostics"]["fact_critique_parse_succeeded"] = False
+            artifact["diagnostics"]["fact_critique_parse_telemetry"] = {
+                "parse_success": False,
+                "parse_repaired": False,
+                "parse_failed": True,
+                "repair_method": None,
+            }
 
         artifact["passed"] = False
         artifact["failure_reason"] = f"fact_critique: critique model failed — {exc}"

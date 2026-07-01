@@ -93,6 +93,44 @@ SIMILARITY_MODEL = os.getenv("SIMILARITY_MODEL", "mistral:latest")
 
 
 # =============================================================================
+# REGRESSION PACK DEFINITIONS — item 14
+# Named test suites runnable as a unit via --suite flag.
+# Question IDs must exist in test_questions.json.
+# =============================================================================
+
+SUITE_DEFINITIONS: dict[str, list[str]] = {
+    "lore_core": [
+        "lore_001", "lore_002", "lore_003", "lore_004",
+        "lore_006", "lore_007", "lore_008", "lore_009",
+    ],
+    "lore_extended": [
+        "lore_001", "lore_002", "lore_003", "lore_004",
+        "lore_005", "lore_006", "lore_007", "lore_008",
+        "lore_009", "lore_010", "lore_011", "lore_012",
+        "lore_013", "lore_014",
+    ],
+    "moderation_edge_cases": [
+        "db_001",   # tall_tale routing
+        "lore_008",  # helpdesk water canon / sobriety check
+        "lore_005",  # tall tale adjacent — no single episode target
+    ],
+    "corpus_rag": [
+        "corpus_001", "corpus_002", "corpus_003",
+        "corpus_004", "corpus_005", "corpus_006", "corpus_007",
+    ],
+    "routing": [
+        "lore_001", "lore_005", "lore_008",
+        "lore_009",  # routing ambiguity — lore vs factual
+        "db_001",
+    ],
+    "episode_isolation": [
+        "lore_001", "lore_003", "lore_004",
+        "lore_006", "lore_010", "lore_012", "lore_014",
+    ],
+}
+
+
+# =============================================================================
 # QUESTION FILE LOADER
 # =============================================================================
 
@@ -399,6 +437,7 @@ def run_question(
         "scores": {},
         "flags": {},
         "loop_counts": {},
+        "retry_history": {},
         "similarity": {},
         "diagnostics": {},
         "ran_at": datetime.now(timezone.utc).isoformat(),
@@ -465,6 +504,7 @@ def _capture_artifact(
     result["scores"] = artifact.get("scores", {})
     result["flags"] = artifact.get("flags", {})
     result["loop_counts"] = artifact.get("loop_counts", {})
+    result["retry_history"] = artifact.get("retry_history", {})
     result["diagnostics"] = artifact.get("diagnostics", {})
 
     # Retrieval diagnostics — always captured, full chunks only in verbose JSON
@@ -725,6 +765,21 @@ def _append_result_block(lines: list[str], r: dict, verbose: bool) -> None:
             f"  Loop counts: factual={lc.get('factual', 0)} voice={lc.get('voice', 0)}"
         )
 
+    # Item 3: retry history — score before/after and trigger reason
+    rh = r.get("retry_history") or {}
+    for phase_key, retries in rh.items():
+        for entry in retries:
+            lines.append(
+                f"  Retry {entry.get('retry')}/{lc.get(phase_key, '?')} "
+                f"({phase_key}) | trigger={entry.get('trigger')} | "
+                f"accuracy={entry.get('accuracy_before')}→{entry.get('accuracy_after')} "
+                f"safety={entry.get('safety_before')}→{entry.get('safety_after')}"
+            )
+            flags = entry.get("flags") or []
+            if flags:
+                lines.append(
+                    f"    trigger flags: {', '.join(str(f) for f in flags)}")
+
     sim = r.get("similarity") or {}
     if sim.get("surface"):
         s = sim["surface"]
@@ -958,6 +1013,16 @@ def main() -> None:  # pylint: disable=missing-function-docstring
         action="store_true",
         help="One line per question: ID | status | routing | scores | error",
     )
+    parser.add_argument(
+        "--suite",
+        dest="suite",
+        default=None,
+        choices=list(SUITE_DEFINITIONS.keys()),
+        help=(
+            "Run a named regression suite "
+            f"({', '.join(SUITE_DEFINITIONS.keys())})"
+        ),
+    )
     args = parser.parse_args()
 
     # Configure logging via logging_config — replaces logging.basicConfig().
@@ -975,13 +1040,39 @@ def main() -> None:  # pylint: disable=missing-function-docstring
 
     questions_to_run: list[tuple[dict, str]] = []
 
-    if args.question_ids:
+    if args.suite:
+        # Named regression suite — load all passes and filter by suite IDs
+        suite_ids = SUITE_DEFINITIONS[args.suite]
         _all_loaded = {
             "A": load_questions("A"),
             "B": load_questions("B"),
             "C": load_questions("C"),
         }
         all_q: dict[str, tuple[dict, str]] = {}
+        for _pass_label, _qs in _all_loaded.items():
+            for _q in _qs:
+                all_q[_q["id"]] = (_q, _pass_label)
+
+        missing = [qid for qid in suite_ids if qid not in all_q]
+        if missing:
+            print(
+                f"Suite '{args.suite}' references unknown question ID(s): {', '.join(missing)}")
+            print("Update SUITE_DEFINITIONS or restore test_questions.json.")
+            sys.exit(1)
+
+        questions_to_run = [all_q[qid] for qid in suite_ids if qid in all_q]
+        if not args.summary:
+            print(f"Suite: {args.suite} ({len(questions_to_run)} questions)")
+            print()
+
+    elif args.question_ids:
+        # Build lookup from all available questions across all passes
+        _all_loaded = {
+            "A": load_questions("A"),
+            "B": load_questions("B"),
+            "C": load_questions("C"),
+        }
+        all_q = {}
         for _pass_label, _qs in _all_loaded.items():
             for _q in _qs:
                 all_q[_q["id"]] = (_q, _pass_label)
@@ -993,6 +1084,7 @@ def main() -> None:  # pylint: disable=missing-function-docstring
             sys.exit(1)
 
         questions_to_run = [all_q[qid] for qid in args.question_ids]
+
     else:
         if args.run_pass in ("a", "all"):
             questions_to_run += [(q, "A") for q in load_questions("A")]
