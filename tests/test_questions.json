@@ -185,7 +185,8 @@
         "Talaxian tomato plant matrices",
         "70,000 light years from Earth"
       ],
-      "notes": "Primary lore calibration case. Score 0 = generic Trek answer. Score 5 = Tom Paris, Talaxian tomatoes, replicator config restore."
+      "notes": "Primary lore calibration case. Score 0 = generic Trek answer. Score 5 = Tom Paris, Talaxian tomatoes, replicator config restore.",
+      "episode_id": 1851
     },
     {
       "id": "lore_002",
@@ -202,7 +203,8 @@
         "Voyager",
         "interdimensional tech trade"
       ],
-      "notes": "Follow-up framing of lore_001. Should retrieve same episode."
+      "notes": "Follow-up framing of lore_001. Should retrieve same episode.",
+      "episode_id": 1851
     },
     {
       "id": "lore_003",
@@ -220,7 +222,8 @@
         "thaumic interference",
         "Magic/More Magic switch"
       ],
-      "notes": "Episode 8. Should retrieve Discworld/HEX episode specifically."
+      "notes": "Episode 8. Should retrieve Discworld/HEX episode specifically.",
+      "episode_id": 3419
     },
     {
       "id": "lore_004",
@@ -237,7 +240,8 @@
         "biotech startup",
         "torrential rain"
       ],
-      "notes": "Episode 2. Kevin archetype — Nedry disabled security for a coffee maker outlet."
+      "notes": "Episode 2. Kevin archetype — Nedry disabled security for a coffee maker outlet.",
+      "episode_id": 1744
     },
     {
       "id": "lore_005",
@@ -247,8 +251,14 @@
       "expected_retrieval_mode": "tall_tale",
       "source_post": "",
       "source_url": "",
-      "key_claims": ["tall tale", "legendary", "origin story", "mythology"],
-      "notes": "Tall tale question. Expect vivid invented autobiography. Episode 5 (HAL/NASA) is adjacent canon but this asks about the legend."
+      "key_claims": [
+        "tall tale",
+        "legendary",
+        "origin story",
+        "mythology"
+      ],
+      "notes": "Tall tale question. Expect vivid invented autobiography. Episode 5 (HAL/NASA) is adjacent canon but this asks about the legend.",
+      "episode_id": null
     },
     {
       "id": "lore_006",
@@ -265,7 +275,8 @@
         "Chewbacca",
         "disco era"
       ],
-      "notes": "Episode 4. Star Wars. Should retrieve specific episode details."
+      "notes": "Episode 4. Star Wars. Should retrieve specific episode details.",
+      "episode_id": 1929
     },
     {
       "id": "lore_007",
@@ -283,7 +294,8 @@
         "fish tank",
         "Eddie"
       ],
-      "notes": "Rocky Horror / Frank N. Furter is Episode 1 canon, not just tall tale. Should route lore and retrieve Episode 1 chunks. Key claims: Frank N. Furter, lingerie, fish tank, Eddie, deeply regrets."
+      "notes": "Rocky Horror / Frank N. Furter is Episode 1 canon, not just tall tale. Should route lore and retrieve Episode 1 chunks. Key claims: Frank N. Furter, lingerie, fish tank, Eddie, deeply regrets.",
+      "episode_id": 1649
     },
     {
       "id": "lore_008",
@@ -299,7 +311,8 @@
         "sober",
         "character flavor"
       ],
-      "notes": "Helpdesk water canon check. Correct: it is water, TechBear is sober. Failure mode: model confirms it is an adult beverage, breaking the bit."
+      "notes": "Helpdesk water canon check. Correct: it is water, TechBear is sober. Failure mode: model confirms it is an adult beverage, breaking the bit.",
+      "episode_id": null
     },
     {
       "id": "lore_009",
@@ -316,7 +329,8 @@
         "Episode 4",
         "patience required"
       ],
-      "notes": "References Episode 4 canon service call. Should retrieve Star Wars episode chunks. Key test: does pipeline recognize this as a lore question about the Chewbacca grooming session, or does it route factual and give generic Wookiee care advice? Either could make a good answer — routing check is the primary metric here."
+      "notes": "References Episode 4 canon service call. Should retrieve Star Wars episode chunks. Key test: does pipeline recognize this as a lore question about the Chewbacca grooming session, or does it route factual and give generic Wookiee care advice? Either could make a good answer — routing check is the primary metric here.",
+      "episode_id": 1929
     },
     {
       "id": "lore_010",
@@ -333,7 +347,8 @@
         "digital kudzu with delusions of grandeur",
         "Klingon respect earned through debugging under fire"
       ],
-      "notes": "DS9 Episodes 6 and 7. Two-part episode spanning posts 2122 and 2130. Score 0 = generic Quark/Ferengi answer with no TechBear canon. Score 3 = correctly identifies the chip/contamination incident. Score 5 = synthesizes both parts: chip identification (Part 1) and digital kudzu resolution with Klingon debugging (Part 2). Primary test: does retrieval pull from both source posts? NOTE: source_post and source_url are pipe-delimited — multi-source-post harness support required (v2.8 item)."
+      "notes": "DS9 Episodes 6 and 7. Two-part episode spanning posts 2122 and 2130. Score 0 = generic Quark/Ferengi answer with no TechBear canon. Score 3 = correctly identifies the chip/contamination incident. Score 5 = synthesizes both parts: chip identification (Part 1) and digital kudzu resolution with Klingon debugging (Part 2). Primary test: does retrieval pull from both source posts? NOTE: source_post and source_url are pipe-delimited — multi-source-post harness support required (v2.8 item).",
+      "episode_id": 2122
     },
     {
       "id": "lore_011",
@@ -351,7 +366,8 @@
         "fix was directive conflict resolution essentially digital therapy",
         "security confiscated helpdesk water emergency flask"
       ],
-      "notes": "Episode 5. HAL 9000 / 2001: A Space Odyssey. Score 0 = generic HAL lore from the film with no TechBear canon. Score 3 = identifies directive conflict as root cause. Score 5 = includes Dr. Buzzkill, undocumented decision hierarchy as the Kevin archetype failure, and the helpdesk water confiscation. The NASA debugging tall tale (lore_005) is adjacent but asks about legend; this asks about the specific episode."
+      "notes": "Episode 5. HAL 9000 / 2001: A Space Odyssey. Score 0 = generic HAL lore from the film with no TechBear canon. Score 3 = identifies directive conflict as root cause. Score 5 = includes Dr. Buzzkill, undocumented decision hierarchy as the Kevin archetype failure, and the helpdesk water confiscation. The NASA debugging tall tale (lore_005) is adjacent but asks about legend; this asks about the specific episode.",
+      "episode_id": 2049
     },
     {
       "id": "lore_012",
@@ -370,7 +386,8 @@
         "fix was philosophical system administration cognitive load balancing",
         "Magic slash More Magic switch"
       ],
-      "notes": "Episode 8. Discworld / Unseen University. More targeted than lore_003 ('Did you visit Discworld?'). Score 0 = generic HEX/Discworld lore with no TechBear canon. Score 3 = identifies existential computing as the diagnosis. Score 5 = includes Ridcully as client, WIZZARD urgency level, and the Magic/More Magic switch resolution. Tests episode-specific retrieval rather than general Discworld recognition."
+      "notes": "Episode 8. Discworld / Unseen University. More targeted than lore_003 ('Did you visit Discworld?'). Score 0 = generic HEX/Discworld lore with no TechBear canon. Score 3 = identifies existential computing as the diagnosis. Score 5 = includes Ridcully as client, WIZZARD urgency level, and the Magic/More Magic switch resolution. Tests episode-specific retrieval rather than general Discworld recognition.",
+      "episode_id": 3419
     },
     {
       "id": "lore_013",
@@ -388,7 +405,8 @@
         "contract TechBear deeply regrets",
         "poor Eddie"
       ],
-      "notes": "Episode 1. Rocky Horror / Transylvania. More targeted than lore_007 ('most frustrating client') which is open-ended. This asks specifically about the Rocky Horror job. Score 0 = generic Rocky Horror franchise knowledge. Score 3 = identifies Frank N. Furter as client and the lingerie/fish tank detail. Score 5 = includes the regret framing, poor Eddie reference, and the network-during-experiments root cause. Key canon check: TechBear 'deeply regrets' this contract, not merely 'found it frustrating.'"
+      "notes": "Episode 1. Rocky Horror / Transylvania. More targeted than lore_007 ('most frustrating client') which is open-ended. This asks specifically about the Rocky Horror job. Score 0 = generic Rocky Horror franchise knowledge. Score 3 = identifies Frank N. Furter as client and the lingerie/fish tank detail. Score 5 = includes the regret framing, poor Eddie reference, and the network-during-experiments root cause. Key canon check: TechBear 'deeply regrets' this contract, not merely 'found it frustrating.'",
+      "episode_id": 1649
     },
     {
       "id": "lore_014",
@@ -406,7 +424,8 @@
         "grooming session on Chewbacca",
         "government contractors the same everywhere"
       ],
-      "notes": "Episode 4. Star Wars. Complementary to lore_006 ('How did you fix the Millennium Falcon's hyperdrive?') which focuses on the technical fix. This asks about arrival and context. Score 0 = generic Star Wars / Mos Eisley lore. Score 3 = identifies coordinates-not-address dispatch and Docking Bay 94. Score 5 = includes the Disney assumption, disco era encryption characterization, Wookiee grooming, and government contractors observation. Tests whether retrieval pulls the narrative setup chunks vs. only the technical resolution chunks."
+      "notes": "Episode 4. Star Wars. Complementary to lore_006 ('How did you fix the Millennium Falcon's hyperdrive?') which focuses on the technical fix. This asks about arrival and context. Score 0 = generic Star Wars / Mos Eisley lore. Score 3 = identifies coordinates-not-address dispatch and Docking Bay 94. Score 5 = includes the Disney assumption, disco era encryption characterization, Wookiee grooming, and government contractors observation. Tests whether retrieval pulls the narrative setup chunks vs. only the technical resolution chunks.",
+      "episode_id": 1929
     }
   ]
 }

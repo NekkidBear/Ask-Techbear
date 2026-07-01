@@ -435,12 +435,14 @@ def run_question(
         facts_chunks = retrieval.get("facts", [])
         voice_chunks = retrieval.get("voice", [])
         lore_chunks = retrieval.get("lore", [])
+        episode_context = retrieval.get("episode_context", {})
         result["retrieval_diagnostics"] = {
             "retrieval_mode": retrieval.get("retrieval_mode"),
             "facts_count": len(facts_chunks),
             "voice_count": len(voice_chunks),
             "lore_count": len(lore_chunks),
             "retrieval_error": artifact.get("flags", {}).get("retrieval_error"),
+            "episode_context": episode_context,
             "facts_chunks": facts_chunks if verbose else [],
             "lore_chunks": lore_chunks if verbose else [],
             "voice_chunks": voice_chunks if verbose else [],
@@ -460,6 +462,23 @@ def run_question(
                 f"expected={result['expected_retrieval_mode']} "
                 f"actual={result['actual_retrieval_mode']}"
             )
+
+        # Episode match validation — Pass C only.
+        # Checks whether the dominant post_id identified by episode isolation
+        # matches the expected episode_id in the test question.
+        # None episode_id = cross-episode or tall-tale question, skip check.
+        expected_episode_id = q.get("episode_id")
+        actual_post_id = episode_context.get("post_id")
+        if (
+            pass_label == "C"
+            and expected_episode_id is not None
+            and episode_context.get("episode_isolated")
+        ):
+            if actual_post_id != expected_episode_id:
+                result["episode_mismatch"] = (
+                    f"expected_post_id={expected_episode_id} "
+                    f"actual_post_id={actual_post_id}"
+                )
 
         # Similarity scoring
         key_claims = q.get("key_claims", [])
@@ -572,7 +591,10 @@ def _append_result_block(lines: list[str], r: dict, verbose: bool) -> None:
     if r.get("routing_mismatch"):
         lines.append(f"  ⚠ ROUTING MISMATCH: {r['routing_mismatch']}")
 
-    # Retrieval diagnostics — always show counts
+    if r.get("episode_mismatch"):
+        lines.append(f"  ⚠ EPISODE MISMATCH: {r['episode_mismatch']}")
+
+    # Retrieval diagnostics — always show counts and episode context
     rd = r.get("retrieval_diagnostics") or {}
     if rd:
         mode = rd.get("retrieval_mode") or "?"
@@ -585,13 +607,31 @@ def _append_result_block(lines: list[str], r: dict, verbose: bool) -> None:
         if rd.get("retrieval_error"):
             lines.append(f"  ⚠ Retrieval error: {rd['retrieval_error']}")
 
+        # Episode isolation context — show for all lore questions
+        ec = rd.get("episode_context") or {}
+        if ec.get("episode_isolated"):
+            lines.append(
+                f"  Episode isolation: post_id={ec.get('post_id')} "
+                f"title={str(ec.get('title', '?'))[:40]} | "
+                f"chunks_removed={ec.get('chunks_removed', 0)} "
+                f"dominant={ec.get('dominant_chunk_count', 0)}"
+            )
+        elif ec and rd.get("retrieval_mode") in ("lore", "tall_tale"):
+            lines.append(
+                f"  Episode isolation: no dominant episode identified "
+                f"(all_post_ids={ec.get('all_post_ids', [])})"
+            )
+
         if verbose and rd.get("lore_chunks"):
             lines.append("  Lore chunks retrieved:")
             for i, chunk in enumerate(rd["lore_chunks"], 1):
                 meta = chunk.get("meta") or {}
+                stage = meta.get("retrieval_stage", "broad")
                 lines.append(
                     f"    [{i}] tier={meta.get('lore_tier', '?')} "
-                    f"src={str(meta.get('source', '?'))[:50]}"
+                    f"stage={stage} "
+                    f"post_id={meta.get('post_id', '?')} "
+                    f"src={str(meta.get('source_type', '?'))[:30]}"
                 )
                 lines.append(f"        {str(chunk.get('text', ''))[:120]}...")
 
@@ -691,12 +731,19 @@ def _append_aggregate(lines: list[str], results: list[dict]) -> None:
     halted = sum(1 for r in results if r.get("pipeline_result") == "halted")
     errors = sum(1 for r in results if r.get("pipeline_result") == "exception")
     routing_mismatches = sum(1 for r in results if r.get("routing_mismatch"))
+    episode_mismatches = sum(1 for r in results if r.get("episode_mismatch"))
 
     lines.append(
         f"Total: {total} | Complete: {complete} | Halted: {halted} | Errors: {errors}"
     )
     if routing_mismatches:
         lines.append(f"Routing mismatches: {routing_mismatches}")
+    if episode_mismatches:
+        ids = ", ".join(
+            str(r.get("id", "?"))
+            for r in results if r.get("episode_mismatch")
+        )
+        lines.append(f"Episode mismatches: {episode_mismatches} ({ids})")
 
     # Retrieval summary
     lore_zero = [
