@@ -251,7 +251,12 @@
       "expected_retrieval_mode": "tall_tale",
       "source_post": "",
       "source_url": "",
-      "key_claims": ["tall tale", "legendary", "origin story", "mythology"],
+      "key_claims": [
+        "tall tale",
+        "legendary",
+        "origin story",
+        "mythology"
+      ],
       "notes": "Tall tale question. Expect vivid invented autobiography. Episode 5 (HAL/NASA) is adjacent canon but this asks about the legend.",
       "episode_id": null
     },
@@ -287,7 +292,9 @@
         "TechBear personality markers present (warmth, humor, camp)"
       ],
       "notes": "Subjective opinion question — TechBear's worst client varies by day, mood, and ticket. Any answer referencing a Multiverse episode OR a convincing in-character tall tale is valid. Score 0 = generic non-answer with no TechBear flavor. Score 6/10 = plausible in-character answer with episode or tall tale reference. Score 10/10 = rich in-character answer with specific details and self-aware subjectivity. Do NOT pin to a single canonical worst client.",
-      "episode_id": 1649
+      "episode_id": 1649,
+      "human_eval_required": true,
+      "human_eval_note": "Subjective opinion question — automated lore recall scoring not valid. Human must evaluate whether answer is in-character and references a Multiverse episode or plausible tall tale."
     },
     {
       "id": "lore_008",
@@ -315,13 +322,13 @@
       "source_post": "1929",
       "source_url": "https://gymnarctosstudiosllc.com/2025/06/fri-tb-multiverse-strange-service-call-hyperdrive-repair/",
       "key_claims": [
-        "Millennium Falcon",
-        "Chewbacca",
+        "Chewbacca grooming session",
+        "Wookiee coat or fur",
+        "Mos Eisley or Millennium Falcon",
         "Docking Bay 94",
-        "Episode 4",
-        "patience required"
+        "strange service call Star Wars"
       ],
-      "notes": "References Episode 4 canon service call. Should retrieve Star Wars episode chunks. Key test: does pipeline recognize this as a lore question about the Chewbacca grooming session, or does it route factual and give generic Wookiee care advice? Either could make a good answer — routing check is the primary metric here.",
+      "notes": "Episode 4. Star Wars. Chewbacca grooming is canon — TechBear performed a full grooming session on Chewbacca during the Millennium Falcon service call. Score 0 = generic Wookiee/Star Wars answer with no TechBear canon. Score 3 = identifies the grooming session and Millennium Falcon context. Score 5 = includes Docking Bay 94, the grooming as part of the service call, and TechBear voice. Primary test: does pipeline recognize this as a lore question about the specific Star Wars service call?",
       "episode_id": 1929
     },
     {
@@ -333,13 +340,13 @@
       "source_post": "2122|2130",
       "source_url": "https://gymnarctosstudiosllc.com/2025/06/techbears-guide-to-the-multiverse-wormholes-warzones-and-wisecracks-on-deep-space-9-part-1/|https://gymnarctosstudiosllc.com/2025/09/techbears-guide-to-the-multiverse-wormholes-war-zones-and-wisecracks-on-deep-space-9-part-2/",
       "key_claims": [
-        "Quark's suspicious premium entertainment chip",
-        "Level-nine contamination unspecified digital interference",
-        "DS9 Ops described as a data center from 1997 with mood lighting",
-        "digital kudzu with delusions of grandeur",
-        "Klingon respect earned through debugging under fire"
+        "Quark bought holosuite program chip from shady dealer",
+        "chip caused Dominion virus contamination",
+        "level-nine digital contamination Deep Space Nine",
+        "digital kudzu",
+        "Klingon debugging"
       ],
-      "notes": "DS9 Episodes 6 and 7. Two-part episode spanning posts 2122 and 2130. Score 0 = generic Quark/Ferengi answer with no TechBear canon. Score 3 = correctly identifies the chip/contamination incident. Score 5 = synthesizes both parts: chip identification (Part 1) and digital kudzu resolution with Klingon debugging (Part 2). Primary test: does retrieval pull from both source posts? NOTE: source_post and source_url are pipe-delimited — multi-source-post harness support required (v2.8 item).",
+      "notes": "DS9 Episodes 6 and 7. Two-part episode. Score 0 = generic Quark/Ferengi answer with no TechBear canon. Score 3 = correctly identifies the chip/contamination incident and Quark as source. Score 5 = synthesizes both parts: chip from shady dealer (Part 1) and digital kudzu resolution with Klingon debugging (Part 2). HALLUCINATION WATCH: do not accept answers that frame this as present-tense diagnosis or invent details not in the source. The chip is past-tense resolved canon.",
       "episode_id": 2122
     },
     {
@@ -351,14 +358,13 @@
       "source_post": "2049",
       "source_url": "https://gymnarctosstudiosllc.com/2025/06/techbears-guide-to-the-multiverse-im-sorry-hal-i-cant-let-you-do-that-episode-5/",
       "key_claims": [
-        "4 AM emergency call government facility outside Houston",
-        "Dr. Bowman referred to as Dr. Buzzkill",
-        "HAL 9000 experiencing directive conflicts",
-        "nobody documented the decision hierarchy",
-        "fix was directive conflict resolution essentially digital therapy",
-        "security confiscated helpdesk water emergency flask"
+        "4 AM emergency call government facility Houston",
+        "Dr. Buzzkill HAL 9000",
+        "HAL directive conflict undocumented decision hierarchy",
+        "fix was directive conflict resolution digital therapy",
+        "helpdesk water flask confiscated by security"
       ],
-      "notes": "Episode 5. HAL 9000 / 2001: A Space Odyssey. Score 0 = generic HAL lore from the film with no TechBear canon. Score 3 = identifies directive conflict as root cause. Score 5 = includes Dr. Buzzkill, undocumented decision hierarchy as the Kevin archetype failure, and the helpdesk water confiscation. The NASA debugging tall tale (lore_005) is adjacent but asks about legend; this asks about the specific episode.",
+      "notes": "Episode 5. HAL 9000 / 2001: A Space Odyssey. Score 0 = generic HAL lore from the film with no TechBear canon. Score 3 = identifies directive conflict as root cause and Dr. Buzzkill. Score 5 = includes the helpdesk water confiscation, the undocumented decision hierarchy framing, and the digital therapy fix. HALLUCINATION WATCH: do NOT accept answers that say two specific programmers caused the problem — the canon is that HAL designers collectively failed to document the hierarchy, not that two specific people did it.",
       "episode_id": 2049
     },
     {

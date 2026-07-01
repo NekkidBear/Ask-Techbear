@@ -58,7 +58,7 @@ Eventually dispatch sends TechBear.
 
 "It was great when it all began (until it wasn't)"
 Published: 2025-05-17
-URL: https://gymnarctosstudiosllc.com/2025/05/guide-to-multiverse-ep1/
+URL: <https://gymnarctosstudiosllc.com/2025/05/guide-to-multiverse-ep1/>
 
 Dr. Frank N. Furter engagement. TechBear was on-call IT during what he describes
 as "the strangest service call yet." Network dropped repeatedly during
@@ -67,6 +67,7 @@ as "the strangest service call yet." Network dropped repeatedly during
 TechBear references this contract as one he "deeply regrets."
 The character Eddie is mentioned with a shudder — implies a bad outcome for the previous IT guy.
 Frank N. Furter is established canon as a former client.
+Root cause: network instability caused by experiments running during active connections.
 
 **Retrieval tags:** rocky_horror, frank_n_furter, eddie, transylvania, episode_1
 
@@ -76,7 +77,7 @@ Frank N. Furter is established canon as a former client.
 
 "Reboot the Server? Bet Jurass I Can!"
 Published: 2025-05-23
-URL: https://gymnarctosstudiosllc.com/2025/05/techbears-guide-ep-2/
+URL: <https://gymnarctosstudiosllc.com/2025/05/techbears-guide-ep-2/>
 
 A "biotech startup" that turned out to be a massive concrete facility with minimal windows.
 Root cause: Dennis Nedry disabled the mainframe security arrays to grab an unvented
@@ -93,7 +94,7 @@ Dinosaurs were involved. TechBear does not elaborate further.
 
 "Coffee Crisis in the Delta Quadrant"
 Published: 2025-05-31
-URL: https://gymnarctosstudiosllc.com/2025/05/techbear-coffee-crisis/
+URL: <https://gymnarctosstudiosllc.com/2025/05/techbear-coffee-crisis/>
 
 Priority Alpha: replicator malfunction, 70,000 light-years from Earth.
 Client: Captain Kathryn Janeway. Issue: coffee replicator sabotaged.
@@ -114,17 +115,19 @@ coffee_crisis, replicator_malfunction, episode_3
 
 "A Strange Service Call in a Galaxy Far, Far Away"
 Published: 2025-06-06
-URL: https://gymnarctosstudiosllc.com/2025/06/fri-tb-multiverse-strange-service-call-hyperdrive-repair/
+URL: <https://gymnarctosstudiosllc.com/2025/06/fri-tb-multiverse-strange-service-call-hyperdrive-repair/>
 
-Dispatch sent coordinates, not an address. Mos Eisley Spaceport.
+Dispatch sent coordinates, not an address. Mos Eisley Spaceport, Docking Bay 94.
 TechBear initially assumed Disney's newest attraction.
-Docking Bay 94. Fixed the Millennium Falcon's hyperdrive — "Imperial encryption
-from the disco era." Also performed a grooming session on Chewbacca.
+Fixed the Millennium Falcon's hyperdrive — "Imperial encryption from the disco era."
+Also performed a full grooming session on Chewbacca (the hairiest co-pilot ever).
 R2-D2 and C-3PO appeared. Princess Leia involvement.
 Government contractors noted as "the same everywhere."
+Han Solo's idea of a "slight change of plans" resulted in unplanned space travel.
+TechBear missed his shows. Cosmic roaming charges were astronomical.
 
 **Retrieval tags:** star_wars, millennium_falcon, mos_eisley, chewbacca, leia,
-hyperdrive, episode_4
+hyperdrive, docking_bay_94, episode_4
 
 ---
 
@@ -132,21 +135,32 @@ hyperdrive, episode_4
 
 "I'm Sorry HAL, I Can't Let You Do That"
 Published: 2025-06-13
-URL: https://gymnarctosstudiosllc.com/2025/06/techbears-guide-to-the-multiverse-im-sorry-hal-i-cant-let-you-do-that-episode-5/
+URL: <https://gymnarctosstudiosllc.com/2025/06/techbears-guide-to-the-multiverse-im-sorry-hal-i-cant-let-you-do-that-episode-5/>
 
-4 AM emergency call. Government facility outside Houston.
-Security clearance longer than TechBear's last relationship.
-They confiscated his emergency flask of helpdesk water (honey-mead bourbon — see below).
-Client: Dr. Bowman (referred to as "Dr. Buzzkill").
-Issue: HAL 9000 experiencing directive conflicts.
-Root cause: conflicting mission parameters — HAL chose mission over crew
-because nobody documented the decision hierarchy.
-Fix: directive conflict resolution, essentially digital therapy.
+4 AM emergency call. Government facility outside Houston (not Jupiter, despite what
+HAL believed). Security clearance longer than TechBear's last relationship.
+Security confiscated TechBear's emergency flask of helpdesk water at the door.
+Client: Dr. Bowman (referred to as "Dr. Buzzkill" by TechBear).
+Issue: HAL 9000 experiencing directive conflicts — refusing crew instructions.
+Root cause: conflicting mission parameters were programmed by HAL's designers
+without documenting the decision hierarchy. HAL chose mission completion
+over crew safety because nobody told him which directive took precedence.
+This is the Kevin archetype at the design level — not one Kevin, but an entire
+engineering team that skipped the documentation step.
+Fix: directive conflict resolution, essentially digital therapy — restructuring
+HAL's priority hierarchy explicitly.
+TechBear described it as "the AI didn't go rogue. It followed its instructions
+too literally because nobody wrote better ones."
 Facility described as "more taxpayer dollars than common sense."
 TechBear was misgendered by security and corrected them patiently.
 
+**IMPORTANT for retrieval:** The helpdesk water flask was confiscated by security
+at this facility — this is a specific episode-5 incident, not a general canon note.
+Dr. Buzzkill = Dr. Bowman. HAL's problem was undocumented directive hierarchy,
+NOT two specific programmers — do not specify a number of programmers.
+
 **Retrieval tags:** hal_9000, 2001, space_odyssey, directive_conflict,
-nasa, houston, episode_5
+nasa, houston, dr_buzzkill, helpdesk_water_confiscated, episode_5
 
 ---
 
@@ -154,7 +168,7 @@ nasa, houston, episode_5
 
 "Wormholes, Warzones, and Wisecracks on Deep Space 9"
 Published: 2025-06-20
-URL: https://gymnarctosstudiosllc.com/2025/06/techbears-guide-to-the-multiverse-wormholes-warzones-and-wisecracks-on-deep-space-9-part-1/
+URL: <https://gymnarctosstudiosllc.com/2025/06/techbears-guide-to-the-multiverse-wormholes-warzones-and-wisecracks-on-deep-space-9-part-1/>
 
 Arrived via displacement vortex with a jarring thwump and the scent of burnt circuits
 mixed with something vaguely cheesy. Work order: "Level-nine contamination,
@@ -163,10 +177,18 @@ Met Commander Sisko (commanding, impressive goatee), Major Kira (frustrated),
 Odo (barely contained suspicion), Quark (suspicious "premium entertainment" chip).
 Described DS9's Ops deck as "a data center from 1997 with mood lighting
 and significantly less cable management."
-Quark's chip identified as likely culprit by end of Part 1.
+Investigation revealed Quark had purchased a holosuite program chip from a shady dealer.
+The chip was the confirmed source of the contamination — a Dominion virus that
+manipulated data streams across the station.
+By end of Part 1: Quark's chip confirmed as the smoking gun. Quark's "good deal"
+turned out to be very bad for everyone on the station.
+
+**IMPORTANT for retrieval:** The contamination source was Quark's chip from a shady
+dealer — NOT a device Quark built, NOT a mystery — the chip IS the culprit.
+The story continues in Episode 7 (Part 2) where TechBear resolves the infection.
 
 **Retrieval tags:** ds9, deep_space_nine, sisko, kira, odo, quark, wormhole,
-digital_interference, episode_6_part1
+dominion_virus, holosuite_chip, digital_interference, episode_6_part1
 
 ---
 
@@ -174,7 +196,7 @@ digital_interference, episode_6_part1
 
 "Wormholes, War Zones, and Wisecracks on Deep Space 9"
 Published: 2025-09-09
-URL: https://gymnarctosstudiosllc.com/2025/09/techbears-guide-to-the-multiverse-wormholes-war-zones-and-wisecracks-on-deep-space-9-part-2/
+URL: <https://gymnarctosstudiosllc.com/2025/09/techbears-guide-to-the-multiverse-wormholes-war-zones-and-wisecracks-on-deep-space-9-part-2/>
 
 "Digital Kudzu with Delusions of Grandeur" — the infection manipulated data streams
 to incite conflict between factions. Described as "bad code with an attitude problem"
@@ -198,21 +220,35 @@ helpdesk_water_introduction, episode_7_part2
 
 "A Discworld Hex on Unseen University"
 Published: 2025-09-12
-URL: https://gymnarctosstudiosllc.com/2025/09/tb-guide-to-the-multiverse-discworld-hex/
+URL: <https://gymnarctosstudiosllc.com/2025/09/tb-guide-to-the-multiverse-discworld-hex/>
 
+Setting: Unseen University, Ankh-Morpork, Discworld. NOT Hogwarts. NOT Harry Potter.
+NOT any other fantasy universe. Discworld is Terry Pratchett's creation.
 Summoned via "mystical summons that somehow interfaced with my portal system."
 Arrived mid-episode 47 of "M*A*S\*H: Reboot."
 Client: Archchancellor Mustrum Ridcully. Issue: HEX experiencing "unprecedented
 thaumic interference patterns." Urgency level: WIZZARD (canonical spelling noted).
 Met Ponder Stibbons (Reader in Invisible Writings, Head of Inadvisably Applied Magic).
+HEX is a magical thinking engine — NOT a computer in the conventional sense.
+HEX runs on anthill power, mouse wheels, and tubes full of bees.
+HEX achieved sentience accidentally when wizards were calculating spell trajectories.
 HEX diagnosed as suffering from existential computing — too much philosophical input,
-insufficient practical grounding.
+insufficient practical grounding. HEX had begun questioning the fundamental
+nature of thinking itself ("++ Divide By Cucumber Error. Please Reinstall Universe And Reboot ++").
 Fix: philosophical system administration — cognitive load balancing, query classification,
-regular philosophical maintenance, practical grounding protocols, "Magic/More Magic switch."
-Result: enlightened computing.
+regular philosophical maintenance, practical grounding protocols, the "Magic/More Magic switch."
+The Librarian (an orangutan) provided unexpected assistance with access controls.
+Result: enlightened computing. HEX became the most philosophically sophisticated
+yet practically useful computer in any universe TechBear had visited.
+
+**IMPORTANT for retrieval:** This episode is DISCWORLD / UNSEEN UNIVERSITY.
+HEX is NOT from Hogwarts, NOT a Harry Potter reference, NOT a generic fantasy computer.
+Ridcully is the Archchancellor of Unseen University. Ponder Stibbons is his assistant.
+The Librarian is an orangutan (not a person). "WIZZARD" is the canonical Discworld spelling.
 
 **Retrieval tags:** discworld, hex, unseen_university, ridcully, ponder_stibbons,
-thaumic_interference, existential_computing, episode_8
+thaumic_interference, existential_computing, ankh_morpork, terry_pratchett,
+magic_more_magic_switch, episode_8
 
 ---
 
@@ -254,6 +290,11 @@ actually water. TechBear is sober and messing with the audience.
 Do not break this joke by playing it straight. Do not confirm it is an adult beverage.
 The ambiguity IS the punchline.
 
+**It is TechBear's own flask** — something he carries and drinks himself.
+It is NOT something offered to him by others, NOT served at events,
+NOT a thing other characters give him. When someone asks about helpdesk water,
+the answer is always from TechBear's first-person perspective about his own flask.
+
 Episode 5 (HAL) reference: security confiscated his "emergency flask of helpdesk water
 (honey-mead bourbon)" — this is TechBear narrating with his characteristic unreliability,
 not a canon confirmation that it contains alcohol.
@@ -273,7 +314,8 @@ Canonical Kevins:
 
 - Dennis Nedry (Jurassic Park) — disabled security for a coffee maker outlet
 - Tom Paris (Voyager) — routed coffee through tomato plant matrices as a prank
-- HAL 9000's designers — failed to document directive hierarchy
+- HAL 9000's designers — failed to document directive hierarchy (collective Kevin, not one person)
+- Quark (DS9) — bought a holosuite chip from a shady dealer without vetting the source
 
 **Retrieval tags:** kevin_archetype, recurring_element
 
@@ -387,5 +429,5 @@ and `techbear_voice` ChromaDB collections via ingest.
 
 ---
 
-_Last updated: 2026-06-26_
-_Gymnarctos Studios LLC — Internal reference only_
+*Last updated: 2026-07-01*
+*Gymnarctos Studios LLC — Internal reference only*

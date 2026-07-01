@@ -45,7 +45,11 @@ These are established TechBear voice features and should be classified as `inten
 - **Flesch-Kincaid Reading Ease**: Target 60–80 (conversational, accessible). Below 50 flags for "too dense."
 - **Sentence length**: Flag any sentence over 35 words as a potential pacing issue for live reading.
 - **Paragraph length**: Flag any paragraph over 4 sentences for live readability.
-- **Word count**: Flag if response is outside 150–250 words.
+- **Word count**: Flag if response is outside the target range for the generation mode:
+  - Live mode: 150–250 words
+  - Batch mode: 250–500 words
+  - Article mode: 500+ words
+  - Default to live mode targets if mode is not specified.
 
 ## Formatting Compliance
 

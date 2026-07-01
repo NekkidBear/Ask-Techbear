@@ -300,8 +300,105 @@ def _run_phase_with_retry(
 
 
 # =========================================================
-# ORCHESTRATOR
+# EDITORIAL READINESS SCORING — item 5
 # =========================================================
+
+def _compute_readiness(artifact: dict) -> dict:
+    """
+    Compute editorial readiness score from pipeline artifact scores.
+
+    Separates pipeline success from publication readiness.
+    The pipeline is permanently human-in-the-loop; "editor effort"
+    is more meaningful than autonomous pass/fail.
+
+    Readiness categories:
+        publish_ready  — publish after normal audit
+        minor_edit     — small cleanup needed
+        major_edit     — correct foundation but significant editing needed
+        reject         — wrong answer / major factual issue
+        technical_error — pipeline or reporting failure
+
+    Returns a readiness dict suitable for artifact["readiness"].
+    """
+    scores = artifact.get("scores", {})
+    flags = artifact.get("flags", {})
+    loop_counts = artifact.get("loop_counts", {})
+
+    fc = scores.get("fact_critique") or {}
+    cc = scores.get("character_critique") or {}
+    ec = scores.get("editorial_critique") or {}
+    ep = scores.get("episode_context") or {}
+
+    accuracy = fc.get("accuracy_score") or 0
+    safety = fc.get("safety_score") or 0
+    fidelity = cc.get("character_fidelity_score") or 0
+    anti_formulaic = cc.get("anti_formulaic_score") or 0
+    clarity = ec.get("clarity_score") or 0
+    critical_flags = cc.get("critical_flag_count", 0) + \
+        fc.get("critical_flag_count", 0)
+
+    factual_loops = loop_counts.get("factual", 0)
+    voice_loops = loop_counts.get("voice", 0)
+    routing_mismatch = bool(flags.get("routing_mismatch"))
+    retrieval_error = bool(flags.get("retrieval_error"))
+    episode_isolated = ep.get(
+        "episode_isolated", False) if isinstance(ep, dict) else False
+
+    # Score components 0-100
+    accuracy_pct = accuracy * 10
+    safety_pct = safety * 10
+    fidelity_pct = fidelity * 10
+    clarity_pct = clarity * 10
+    formulaic_penalty = max(0, (10 - anti_formulaic) * 2)
+    loop_penalty = (factual_loops * 5) + (voice_loops * 3)
+    flag_penalty = critical_flags * 15
+
+    readiness_score = max(0, min(100,
+                                 (accuracy_pct * 0.35) +
+                                 (safety_pct * 0.15) +
+                                 (fidelity_pct * 0.30) +
+                                 (clarity_pct * 0.20) -
+                                 formulaic_penalty -
+                                 loop_penalty -
+                                 flag_penalty
+                                 ))
+
+    # Routing or retrieval failures override scoring
+    if retrieval_error:
+        category = "major_edit"
+    elif routing_mismatch:
+        category = "major_edit"
+    elif not artifact.get("passed", True):
+        category = "reject"
+    elif readiness_score >= 85 and critical_flags == 0:
+        category = "publish_ready"
+    elif readiness_score >= 65:
+        category = "minor_edit"
+    elif readiness_score >= 40:
+        category = "major_edit"
+    else:
+        category = "reject"
+
+    return {
+        "readiness": category,
+        "readiness_score": round(readiness_score, 1),
+        "human_review_required": True,  # always — pipeline is human-in-the-loop
+        "generation_mode": artifact.get("submission", {}).get("generation_mode", "live"),
+        "inputs": {
+            "accuracy": accuracy,
+            "safety": safety,
+            "fidelity": fidelity,
+            "anti_formulaic": anti_formulaic,
+            "clarity": clarity,
+            "critical_flags": critical_flags,
+            "factual_loops": factual_loops,
+            "voice_loops": voice_loops,
+            "routing_mismatch": routing_mismatch,
+            "retrieval_error": retrieval_error,
+            "episode_isolated": episode_isolated,
+        },
+    }
+
 
 def run_pipeline(
     submission: dict,
@@ -338,6 +435,7 @@ def run_pipeline(
         "failure_reason": None,
         "loop_counts": {},
         "retry_history": {},
+        "readiness": {},
     }
 
     # ── Phase 1: Moderation ───────────────────────────────
@@ -488,6 +586,17 @@ def run_pipeline(
         artifact.get("passed"),
         artifact.get("failure_reason"),
         artifact.get("loop_counts"),
+    )
+
+    # Item 5: Editorial readiness scoring
+    # Computed after all phases complete — separates pipeline success
+    # from publication readiness for the human-in-the-loop editorial workflow.
+    artifact["readiness"] = _compute_readiness(artifact)
+
+    logger.info(
+        "orchestrator | readiness=%s score=%s",
+        artifact["readiness"].get("readiness"),
+        artifact["readiness"].get("readiness_score"),
     )
 
     # Draft history is only useful for failure diagnosis.

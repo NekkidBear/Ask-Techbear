@@ -382,15 +382,20 @@ class _PhaseStopSignal(Exception):
     """Raised by the stage callback when the target phase has completed."""
 
 
-def _make_stage_printer(phase_stop: str | None = None) -> Callable[[str], None]:
+def _make_stage_printer(
+    phase_stop: str | None = None,
+    quiet: bool = False,
+) -> Callable[[str], None]:
     """
     Returns an on_stage callback. If phase_stop is set, raises _PhaseStopSignal
     after the named phase fires, halting the pipeline cleanly at that point.
+    If quiet is True, suppresses phase output (used in --summary mode).
     """
     completed: list[str] = []
 
     def _printer(stage: str) -> None:
-        print(f"    → {stage}", flush=True)
+        if not quiet:
+            print(f"    → {stage}", flush=True)
         if phase_stop and completed and completed[-1] == phase_stop:
             raise _PhaseStopSignal(f"Stopped after phase: {phase_stop}")
         completed.append(stage)
@@ -403,7 +408,9 @@ def run_question(
     pass_label: str,
     dry_run: bool = False,
     verbose: bool = False,
+    summary: bool = False,
     phase_stop: str | None = None,
+    generation_mode: str = "live",
 ) -> dict:
     """Run one question through the pipeline and collect all results."""
     submission = {
@@ -417,6 +424,7 @@ def run_question(
         "rolling_context": "",
         "batch_context": [],
         "diagnostic_mode": True,
+        "generation_mode": generation_mode,
     }
 
     result: dict = {
@@ -439,6 +447,7 @@ def run_question(
         "loop_counts": {},
         "retry_history": {},
         "draft_history": {},
+        "readiness": {},
         "similarity": {},
         "diagnostics": {},
         "ran_at": datetime.now(timezone.utc).isoformat(),
@@ -460,7 +469,7 @@ def run_question(
     try:
         try:
             artifact = _run_pipeline(
-                submission, on_stage=_make_stage_printer(phase_stop))
+                submission, on_stage=_make_stage_printer(phase_stop, quiet=summary))
         except _PhaseStopSignal:
             # Pipeline halted cleanly at requested phase — treat as partial complete
             result["pipeline_result"] = f"stopped_after_{phase_stop}"
@@ -507,6 +516,7 @@ def _capture_artifact(
     result["loop_counts"] = artifact.get("loop_counts", {})
     result["retry_history"] = artifact.get("retry_history", {})
     result["draft_history"] = artifact.get("draft_history", {})
+    result["readiness"] = artifact.get("readiness", {})
     result["diagnostics"] = artifact.get("diagnostics", {})
 
     # Retrieval diagnostics — always captured, full chunks only in verbose JSON
@@ -637,13 +647,17 @@ def _summary_line(r: dict) -> str:
 
     score_str = " ".join(score_parts) if score_parts else "—"
 
+    rd = r.get("readiness") or {}
+    readiness_str = f" [{rd.get('readiness', '')}]" if rd.get(
+        "readiness") else ""
+
     error_str = ""
     err = str(r.get("pipeline_error") or "")
     if err:
         error_str = f" | {err[:60]}" if len(err) > 60 else f" | {err}"
 
     return (
-        f"{r.get('id', '?'):<12} {status:<10} {routing_flag:<14} {score_str}{error_str}"
+        f"{r.get('id', '?'):<12} {status:<10} {routing_flag:<14} {score_str}{readiness_str}{error_str}"
     )
 
 
@@ -738,6 +752,15 @@ def _append_result_block(lines: list[str], r: dict, verbose: bool) -> None:
 
     if r.get("pipeline_error"):
         lines.append(f"  ERROR: {r.get('pipeline_error')}")
+
+    # Item 5: Editorial readiness
+    rd = r.get("readiness") or {}
+    if rd:
+        lines.append(
+            f"  Readiness: {rd.get('readiness', '?')} "
+            f"(score={rd.get('readiness_score', '?')}) "
+            f"mode={rd.get('generation_mode', 'live')}"
+        )
 
     if verbose:
         diag = r.get("diagnostics") or {}
@@ -1038,6 +1061,16 @@ def main() -> None:  # pylint: disable=missing-function-docstring
         help="One line per question: ID | status | routing | scores | error",
     )
     parser.add_argument(
+        "--mode",
+        dest="generation_mode",
+        default="live",
+        choices=["live", "batch", "article"],
+        help=(
+            "Generation mode profile: live (150-250 words, default), "
+            "batch (250-500 words), article (500+ words)"
+        ),
+    )
+    parser.add_argument(
         "--suite",
         dest="suite",
         default=None,
@@ -1049,7 +1082,9 @@ def main() -> None:  # pylint: disable=missing-function-docstring
     )
     args = parser.parse_args()
 
-    # Configure logging via logging_config — replaces logging.basicConfig().
+    # Configure logging FIRST — before any DB queries fire during load_questions().
+    # SQLAlchemy starts emitting logs the moment it connects; if configure_logging()
+    # runs after load_questions(), the suppression is too late.
     verbosity = "verbose" if args.verbose else "standard"
     if configure_logging is not None:
         configure_logging(verbosity=verbosity, file_logging=True)
@@ -1058,6 +1093,14 @@ def main() -> None:  # pylint: disable=missing-function-docstring
             level=logging.DEBUG if args.verbose else logging.WARNING,
             format="%(name)s %(levelname)s %(message)s",
         )
+
+    # Explicitly suppress SQLAlchemy before the first DB query regardless of
+    # configure_logging availability — belt-and-suspenders for the chatter issue.
+    for _sa_logger in (
+        "sqlalchemy.engine", "sqlalchemy.engine.Engine",
+        "sqlalchemy.pool", "sqlalchemy.dialects", "sqlalchemy.orm",
+    ):
+        logging.getLogger(_sa_logger).setLevel(logging.WARNING)
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
     timestamp: str = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -1128,7 +1171,10 @@ def main() -> None:  # pylint: disable=missing-function-docstring
 
     results = []
     for i, (q, p) in enumerate(questions_to_run, 1):
-        if not args.summary:
+        if args.summary:
+            # Show question ID as progress anchor in summary mode
+            print(f"[{i}/{len(questions_to_run)}] {q['id']} ({p})...", flush=True)
+        else:
             print(
                 f"[{i}/{len(questions_to_run)}] {q['id']} ({p})  "
                 f"{q['question'][:60]}..."
@@ -1137,7 +1183,9 @@ def main() -> None:  # pylint: disable=missing-function-docstring
             q, p,
             dry_run=args.dry_run,
             verbose=args.verbose,
+            summary=args.summary,
             phase_stop=args.phase_stop,
+            generation_mode=args.generation_mode,
         )
         results.append(r)
 

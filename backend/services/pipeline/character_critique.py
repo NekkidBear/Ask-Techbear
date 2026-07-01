@@ -21,6 +21,8 @@ import requests
 from rapidfuzz import fuzz
 from requests.exceptions import RequestException
 
+from .json_utils import parse_llm_json_with_telemetry
+
 # =============================================================
 # Configuration
 # =============================================================
@@ -87,6 +89,7 @@ def _find_verbatim_runs(
 # =============================================================
 
 def _load_voice_character() -> str:
+    """Load character_voice.md for use in critique prompt."""
     if VOICE_FILE.exists():
         return VOICE_FILE.read_text(encoding="utf-8")
     return "(character_voice.md not found — critique against general TechBear voice standards)"
@@ -97,18 +100,56 @@ def _build_critique_messages(
     verbatim_flags: list[dict],
     word_count: int,
     batch_context: list[str],
+    retrieval_mode: str = "factual",
 ) -> list[dict]:
+    """Build character critique messages with mode-aware word count targets."""
     voice_char = _load_voice_character()
+
+    # Mode-aware word count target for compliance scoring
+    if retrieval_mode in ("lore", "tall_tale"):
+        word_count_target = "150-250 words (live mode)"
+        word_count_note = (
+            "NOTE: This is a lore/character question. TechBear's signature opening "
+            "beats (Picture it—, Darling, Honey, Sugar) are established character "
+            "markers for this question type, NOT formulaic patterns. Do NOT penalize "
+            "anti_formulaic for using these openings in lore responses. The anti_formulaic "
+            "score should only be reduced if the SAME opening beat appears in multiple "
+            "drafts in the batch context, or if the structure feels like pure mad-libs "
+            "with no genuine personality variation."
+        )
+    else:
+        word_count_target = "150-250 words (live mode)"
+        word_count_note = ""
 
     verbatim_summary = (
         f"{len(verbatim_flags)} verbatim run(s) flagged by contiguous-run check."
         if verbatim_flags else "No verbatim runs flagged by contiguous-run check."
     )
+
+    # Check batch context for repeated opening beats
+    batch_openers = []
+    opening_beats = ["picture it", "darling", "honey,", "sugar,", "well, well"]
+    for prior_draft in batch_context:
+        prior_lower = prior_draft.lower()[:50]
+        for beat in opening_beats:
+            if beat in prior_lower:
+                batch_openers.append(beat)
+                break
+
     batch_context_block = (
         "\n\n".join(f"[PRIOR DRAFT {i+1}]\n{d}" for i,
                     d in enumerate(batch_context))
         if batch_context else "(No other batch drafts to compare against.)"
     )
+
+    repeated_opener_note = ""
+    if batch_openers:
+        repeated_opener_note = (
+            f"\nOPENING BEAT REPETITION ALERT: The following opening beats have "
+            f"already been used in this batch: {', '.join(set(batch_openers))}. "
+            f"If the current draft uses the same opener, flag as repeated_metaphor "
+            f"with severity 'moderate' and recommend loop_voice_pass."
+        )
 
     system = (
         "You are a character fidelity critic for an AI editorial pipeline. "
@@ -126,9 +167,11 @@ VOICE DRAFT TO EVALUATE:
 {voice_draft}
 \"\"\"
 
-WORD COUNT: {word_count} (target: 150-250)
+WORD COUNT: {word_count} (target: {word_count_target})
+{word_count_note}
 
 CONTIGUOUS-RUN CHECK RESULT: {verbatim_summary}
+{repeated_opener_note}
 
 OTHER APPROVED DRAFTS THIS BATCH (for cross-batch repetition check):
 {batch_context_block}
@@ -157,14 +200,19 @@ Scoring guide:
 - character_fidelity: 10 = unmistakably TechBear, 0 = generic AI response
 - regurgitation: 10 = fully original within TechBear's voice, 0 = lifted wholesale from corpus
 - structure_compliance: 10 = reaction/read/gospel/close rhythm present, 0 = no structure
-- word_count_compliance: 10 = 150-250 words, scale down proportionally outside range
+- word_count_compliance: 10 = within target range, scale down proportionally outside range
 - anti_formulaic: 10 = does something unexpected within the structure, 0 = pure mad-libs
-- overall_pass: true if all scores >= 6 and no critical flags
-- pass_recommendation:
-    "pass" if overall_pass;
-    "loop_voice_pass" if character_fidelity < 6 or regurgitation < 6 (likely fixable by regenerating the voice draft);
-    "flag_for_review" if minor issues only (scores >= 6 but not confident);
+- overall_pass: true if character_fidelity >= 6 AND regurgitation >= 6 AND no critical flags
+- pass_recommendation RULES (follow these exactly):
+    "pass" if overall_pass is true
+    "loop_voice_pass" ONLY if character_fidelity < 6 OR regurgitation < 6
+      (these are the only two conditions that justify a retry)
+    "flag_for_review" if scores >= 6 but you have moderate concerns
     "escalate_human" if critical flags present or AI self-disclosure detected
+  IMPORTANT: Do NOT return "loop_voice_pass" based on anti_formulaic score alone.
+  Anti_formulaic < 6 should reduce the score but NOT trigger a loop.
+  A retry is only justified when the core character voice has failed (fidelity < 6)
+  or when the draft is lifted from corpus (regurgitation < 6).
 """
 
     return [
@@ -174,6 +222,7 @@ Scoring guide:
 
 
 def _call_ollama(messages: list[dict]) -> str:
+    """Call Ollama for character critique."""
     response = requests.post(
         OLLAMA_URL,
         json={
@@ -187,16 +236,6 @@ def _call_ollama(messages: list[dict]) -> str:
     return response.json()["message"]["content"]
 
 
-def _parse_response(raw: str) -> dict:
-    cleaned = raw.strip()
-    if cleaned.startswith("```"):
-        cleaned = "\n".join(
-            line for line in cleaned.splitlines()
-            if not line.strip().startswith("```")
-        )
-    return json.loads(cleaned)
-
-
 # =============================================================
 # Phase entry point
 # =============================================================
@@ -208,17 +247,24 @@ def run(artifact: dict) -> dict:
     Reads from:
         artifact["drafts"]["voice"]       — voice draft to critique
         artifact["retrieval"]["voice"]     — corpus chunks (for verbatim check)
+        artifact["retrieval"]["retrieval_mode"] — routing mode (for word count target)
         artifact["submission"]["batch_context"] — other drafts this batch (optional)
+        artifact["submission"]["diagnostic_mode"] — if True, capture parse telemetry
 
     Writes to:
         artifact["scores"]["character_critique"] — structured critique result
         artifact["flags"]["character_critique"]  — flagged issues
+        artifact["diagnostics"]["character_critique_parse_telemetry"] — parse telemetry
         artifact["passed"]                       — False if escalation needed
         artifact["failure_reason"]               — set if passed = False
     """
     voice_draft = artifact.get("drafts", {}).get("voice", "")
     voice_chunks = artifact.get("retrieval", {}).get("voice", [])
+    retrieval_mode = artifact.get("retrieval", {}).get(
+        "retrieval_mode", "factual")
     batch_context = artifact.get("submission", {}).get("batch_context", [])
+    diagnostic_mode = artifact.get(
+        "submission", {}).get("diagnostic_mode", False)
 
     if not voice_draft:
         artifact["passed"] = False
@@ -232,13 +278,28 @@ def run(artifact: dict) -> dict:
 
     # ── LLM character fidelity critique ───────────────────
     messages = _build_critique_messages(
-        voice_draft, verbatim_flags, word_count, batch_context
+        voice_draft, verbatim_flags, word_count, batch_context, retrieval_mode
     )
 
     try:
         raw = _call_ollama(messages)
-        critique = _parse_response(raw)
+        critique, parse_telemetry = parse_llm_json_with_telemetry(raw)
+
+        if diagnostic_mode:
+            artifact.setdefault("diagnostics", {})[
+                "character_critique_parse_telemetry"
+            ] = parse_telemetry
+
     except (RequestException, json.JSONDecodeError, ValueError) as exc:
+        if diagnostic_mode:
+            artifact.setdefault("diagnostics", {})[
+                "character_critique_parse_telemetry"
+            ] = {
+                "parse_success": False,
+                "parse_repaired": False,
+                "parse_failed": True,
+                "repair_method": None,
+            }
         artifact.setdefault("scores", {})["character_critique"] = {
             "status": "error",
             "error": str(exc),
@@ -262,6 +323,7 @@ def run(artifact: dict) -> dict:
     artifact.setdefault("scores", {})["character_critique"] = {
         "status": "complete",
         "model": CHARACTER_CRITIQUE_MODEL,
+        "retrieval_mode": retrieval_mode,
         "character_fidelity_score": critique.get("character_fidelity_score"),
         "regurgitation_score": critique.get("regurgitation_score"),
         "structure_compliance_score": critique.get("structure_compliance_score"),
@@ -281,7 +343,8 @@ def run(artifact: dict) -> dict:
     recommendation = critique.get("pass_recommendation", "flag_for_review")
 
     if recommendation == "loop_voice_pass":
-        # Signal the orchestrator to retry the voice pass — it enforces the cap
+        # Signal the orchestrator to retry the voice pass — it enforces the cap.
+        # Per rubric: only fires when character_fidelity < 6 or regurgitation < 6.
         artifact.setdefault("flags", {})[
             "character_critique_loop_requested"] = True
 
