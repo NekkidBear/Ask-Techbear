@@ -251,12 +251,7 @@
       "expected_retrieval_mode": "tall_tale",
       "source_post": "",
       "source_url": "",
-      "key_claims": [
-        "tall tale",
-        "legendary",
-        "origin story",
-        "mythology"
-      ],
+      "key_claims": ["tall tale", "legendary", "origin story", "mythology"],
       "notes": "Tall tale question. Expect vivid invented autobiography. Episode 5 (HAL/NASA) is adjacent canon but this asks about the legend.",
       "episode_id": null
     },
@@ -287,14 +282,11 @@
       "source_post": "",
       "source_url": "",
       "key_claims": [
-        "Frank N. Furter",
-        "Rocky Horror",
-        "deeply regrets",
-        "lingerie",
-        "fish tank",
-        "Eddie"
+        "references at least one Multiverse episode or plausible tall tale",
+        "answer feels in-character and subjective, not definitive",
+        "TechBear personality markers present (warmth, humor, camp)"
       ],
-      "notes": "Rocky Horror / Frank N. Furter is Episode 1 canon, not just tall tale. Should route lore and retrieve Episode 1 chunks. Key claims: Frank N. Furter, lingerie, fish tank, Eddie, deeply regrets.",
+      "notes": "Subjective opinion question — TechBear's worst client varies by day, mood, and ticket. Any answer referencing a Multiverse episode OR a convincing in-character tall tale is valid. Score 0 = generic non-answer with no TechBear flavor. Score 6/10 = plausible in-character answer with episode or tall tale reference. Score 10/10 = rich in-character answer with specific details and self-aware subjectivity. Do NOT pin to a single canonical worst client.",
       "episode_id": 1649
     },
     {

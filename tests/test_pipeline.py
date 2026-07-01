@@ -1,4 +1,5 @@
-#!/usr/bin/env python3
+#!/usr/bin/env python3  # noqa: E265
+# pylint: disable=too-many-lines  # v2.9: scheduled for module split into tests/harness/
 """
 Ask TechBear v2.8 — Pipeline Test Harness
 Gymnarctos Studios LLC
@@ -28,6 +29,7 @@ Verbosity:
 Output:
     tests/test_output/pipeline_test_results_{timestamp}.json
     tests/test_output/pipeline_test_summary_{timestamp}.txt
+    tests/test_output/failures/{timestamp}_{question_id}/ — on exception/halt
 """
 
 import argparse
@@ -411,6 +413,10 @@ def run_question(
         result["pipeline_error"] = "Pipeline not available — check installation"
         return result
 
+    # Initialize artifact to None so the exception handler can safely check
+    # whether it was assigned before the exception occurred (item 15).
+    artifact: dict | None = None
+
     try:
         try:
             artifact = _run_pipeline(
@@ -423,84 +429,139 @@ def run_question(
         result["pipeline_result"] = "complete" if artifact.get(
             "passed") else "halted"
         result["pipeline_error"] = artifact.get("failure_reason")
-        result["voice_draft"] = artifact.get("drafts", {}).get("voice", "")
-        result["factual_draft"] = artifact.get("drafts", {}).get("factual", "")
-        result["scores"] = artifact.get("scores", {})
-        result["flags"] = artifact.get("flags", {})
-        result["loop_counts"] = artifact.get("loop_counts", {})
-        result["diagnostics"] = artifact.get("diagnostics", {})
-
-        # Retrieval diagnostics — always captured, full chunks only in verbose JSON
-        retrieval = artifact.get("retrieval", {})
-        facts_chunks = retrieval.get("facts", [])
-        voice_chunks = retrieval.get("voice", [])
-        lore_chunks = retrieval.get("lore", [])
-        episode_context = retrieval.get("episode_context", {})
-        result["retrieval_diagnostics"] = {
-            "retrieval_mode": retrieval.get("retrieval_mode"),
-            "facts_count": len(facts_chunks),
-            "voice_count": len(voice_chunks),
-            "lore_count": len(lore_chunks),
-            "retrieval_error": artifact.get("flags", {}).get("retrieval_error"),
-            "episode_context": episode_context,
-            "facts_chunks": facts_chunks if verbose else [],
-            "lore_chunks": lore_chunks if verbose else [],
-            "voice_chunks": voice_chunks if verbose else [],
-        }
-
-        # Routing validation
-        result["actual_retrieval_mode"] = (
-            retrieval.get("retrieval_mode")
-            or artifact.get("scores", {}).get("moderation", {}).get("retrieval_mode")
-        )
-        if (
-            result["expected_retrieval_mode"]
-            and result["actual_retrieval_mode"]
-            and result["expected_retrieval_mode"] != result["actual_retrieval_mode"]
-        ):
-            result["routing_mismatch"] = (
-                f"expected={result['expected_retrieval_mode']} "
-                f"actual={result['actual_retrieval_mode']}"
-            )
-
-        # Episode match validation — Pass C only.
-        # Checks whether the dominant post_id identified by episode isolation
-        # matches the expected episode_id in the test question.
-        # None episode_id = cross-episode or tall-tale question, skip check.
-        expected_episode_id = q.get("episode_id")
-        actual_post_id = episode_context.get("post_id")
-        if (
-            pass_label == "C"
-            and expected_episode_id is not None
-            and episode_context.get("episode_isolated")
-        ):
-            if actual_post_id != expected_episode_id:
-                result["episode_mismatch"] = (
-                    f"expected_post_id={expected_episode_id} "
-                    f"actual_post_id={actual_post_id}"
-                )
-
-        # Similarity scoring
-        key_claims = q.get("key_claims", [])
-        if key_claims and result["voice_draft"]:
-            output_text = result["voice_draft"]
-            if pass_label == "B":
-                result["similarity"]["surface"] = score_surface_similarity(
-                    output_text, key_claims
-                )
-                result["similarity"]["semantic"] = score_semantic_similarity(
-                    output_text, key_claims, q["question"]
-                )
-            elif pass_label == "C":
-                result["similarity"]["lore_recall"] = score_lore_recall(
-                    output_text, key_claims
-                )
+        _capture_artifact(result, artifact, q, pass_label, verbose)
 
     except (RuntimeError, ValueError, OSError) as exc:
         result["pipeline_result"] = "exception"
         result["pipeline_error"] = str(exc)
+        # Item 15: preserve partial artifact data on exception/halt.
+        # The artifact may be partially populated even when the pipeline
+        # raises — capture whatever exists so failures are diagnosable.
+        if artifact is not None:
+            try:
+                _capture_artifact(result, artifact, q, pass_label, verbose)
+                _save_failure_artifact(result, artifact, q)
+            except Exception:  # pylint: disable=broad-exception-caught
+                pass  # never let artifact capture crash the harness
 
     return result
+
+
+def _capture_artifact(
+    result: dict,
+    artifact: dict,
+    q: dict,
+    pass_label: str,
+    verbose: bool,
+) -> None:
+    """
+    Extract all diagnostic data from a pipeline artifact into the result dict.
+
+    Called on both success and exception paths so that partial artifacts
+    from halted pipelines are captured for diagnosis (item 15).
+    """
+    result["voice_draft"] = artifact.get("drafts", {}).get("voice", "")
+    result["factual_draft"] = artifact.get("drafts", {}).get("factual", "")
+    result["scores"] = artifact.get("scores", {})
+    result["flags"] = artifact.get("flags", {})
+    result["loop_counts"] = artifact.get("loop_counts", {})
+    result["diagnostics"] = artifact.get("diagnostics", {})
+
+    # Retrieval diagnostics — always captured, full chunks only in verbose JSON
+    retrieval = artifact.get("retrieval", {})
+    facts_chunks = retrieval.get("facts", [])
+    voice_chunks = retrieval.get("voice", [])
+    lore_chunks = retrieval.get("lore", [])
+    episode_context = retrieval.get("episode_context", {})
+    result["retrieval_diagnostics"] = {
+        "retrieval_mode": retrieval.get("retrieval_mode"),
+        "facts_count": len(facts_chunks),
+        "voice_count": len(voice_chunks),
+        "lore_count": len(lore_chunks),
+        "retrieval_error": artifact.get("flags", {}).get("retrieval_error"),
+        "episode_context": episode_context,
+        "facts_chunks": facts_chunks if verbose else [],
+        "lore_chunks": lore_chunks if verbose else [],
+        "voice_chunks": voice_chunks if verbose else [],
+    }
+
+    # Routing validation
+    result["actual_retrieval_mode"] = (
+        retrieval.get("retrieval_mode")
+        or artifact.get("scores", {}).get("moderation", {}).get("retrieval_mode")
+    )
+    if (
+        result["expected_retrieval_mode"]
+        and result["actual_retrieval_mode"]
+        and result["expected_retrieval_mode"] != result["actual_retrieval_mode"]
+    ):
+        result["routing_mismatch"] = (
+            f"expected={result['expected_retrieval_mode']} "
+            f"actual={result['actual_retrieval_mode']}"
+        )
+
+    # Episode match validation — Pass C only.
+    # Checks whether the dominant post_id identified by episode isolation
+    # matches the expected episode_id in the test question.
+    # None episode_id = cross-episode or tall-tale question, skip check.
+    expected_episode_id = q.get("episode_id")
+    actual_post_id = episode_context.get("post_id")
+    if (
+        pass_label == "C"
+        and expected_episode_id is not None
+        and episode_context.get("episode_isolated")
+    ):
+        if actual_post_id != expected_episode_id:
+            result["episode_mismatch"] = (
+                f"expected_post_id={expected_episode_id} "
+                f"actual_post_id={actual_post_id}"
+            )
+
+    # Similarity scoring — only when voice draft exists
+    key_claims = q.get("key_claims", [])
+    if key_claims and result.get("voice_draft"):
+        output_text = result["voice_draft"]
+        if pass_label == "B":
+            result["similarity"]["surface"] = score_surface_similarity(
+                output_text, key_claims
+            )
+            result["similarity"]["semantic"] = score_semantic_similarity(
+                output_text, key_claims, q["question"]
+            )
+        elif pass_label == "C":
+            result["similarity"]["lore_recall"] = score_lore_recall(
+                output_text, key_claims
+            )
+
+
+def _save_failure_artifact(result: dict, artifact: dict, q: dict) -> None:
+    """
+    Persist full artifact to disk for failed/halted pipeline runs.
+
+    Saves to tests/test_output/failures/{timestamp}_{question_id}/
+    so debugging artifacts survive across test runs and can be compared
+    across pipeline versions.
+    """
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    failure_dir = OUTPUT_DIR / "failures" / f"{timestamp}_{q['id']}"
+    failure_dir.mkdir(parents=True, exist_ok=True)
+
+    artifact_path = failure_dir / "artifact.json"
+    artifact_path.write_text(
+        json.dumps(artifact, indent=2, ensure_ascii=False, default=str),
+        encoding="utf-8",
+    )
+
+    result_path = failure_dir / "result.json"
+    result_path.write_text(
+        json.dumps(result, indent=2, ensure_ascii=False, default=str),
+        encoding="utf-8",
+    )
+
+    logger.debug(
+        "failure artifact saved | question=%s path=%s",
+        q["id"], failure_dir,
+    )
 
 
 # =============================================================================
@@ -528,7 +589,9 @@ def _summary_line(r: dict) -> str:
         score_parts.append(f"fid={fid}")
     lr = (r.get("similarity") or {}).get("lore_recall")
     if lr:
-        score_parts.append(f"lore={lr.get('lore_score', '?')}/5")
+        lore_score = lr.get("lore_score", "?")
+        lore_10 = lore_score * 2 if isinstance(lore_score, int) else "?"
+        score_parts.append(f"lore={lore_score}/5({lore_10}/10)")
 
     score_str = " ".join(score_parts) if score_parts else "—"
 
@@ -555,14 +618,11 @@ def write_summary(results: list[dict], output_path: Path, verbose: bool = False)
         for r in results:
             _append_result_block(lines, r, verbose)
 
-        # Aggregate
         lines.append("=" * 60)
         lines.append("AGGREGATE")
         _append_aggregate(lines, results)
 
     except Exception as exc:  # pylint: disable=broad-exception-caught
-        # Reporting failure must not abort the run or lose the JSON artifact.
-        # Mark the summary as incomplete rather than crashing.
         logger.error(
             "write_summary | reporting failure — summary may be incomplete | error=%r",
             str(exc),
@@ -607,7 +667,6 @@ def _append_result_block(lines: list[str], r: dict, verbose: bool) -> None:
         if rd.get("retrieval_error"):
             lines.append(f"  ⚠ Retrieval error: {rd['retrieval_error']}")
 
-        # Episode isolation context — show for all lore questions
         ec = rd.get("episode_context") or {}
         if ec.get("episode_isolated"):
             lines.append(
@@ -638,7 +697,6 @@ def _append_result_block(lines: list[str], r: dict, verbose: bool) -> None:
     if r.get("pipeline_error"):
         lines.append(f"  ERROR: {r.get('pipeline_error')}")
 
-    # Moderation diagnostics in verbose mode
     if verbose:
         diag = r.get("diagnostics") or {}
         if diag.get("moderation_raw_response"):
@@ -690,8 +748,10 @@ def _append_result_block(lines: list[str], r: dict, verbose: bool) -> None:
 
     lr = sim.get("lore_recall")
     if lr:
+        lore_score = lr.get("lore_score", "?")
+        lore_10 = lore_score * 2 if isinstance(lore_score, int) else "?"
         lines.append(
-            f"  Lore recall: {lr.get('lore_score', '?')}/5 "
+            f"  Lore recall: {lore_score}/5 ({lore_10}/10) "
             f"(claims hit: {lr.get('claims_hit', 0)}/{lr.get('total_claims', 0)})"
         )
 
@@ -745,15 +805,17 @@ def _append_aggregate(lines: list[str], results: list[dict]) -> None:
         )
         lines.append(f"Episode mismatches: {episode_mismatches} ({ids})")
 
-    # Retrieval summary
+    # Retrieval summary — exclude exceptions (retrieval_diagnostics may be empty)
     lore_zero = [
         r for r in results
-        if (r.get("retrieval_diagnostics") or {}).get("lore_count", 0) == 0
+        if r.get("pipeline_result") != "exception"
+        and (r.get("retrieval_diagnostics") or {}).get("lore_count", 0) == 0
         and r.get("category") in ("lore", "tall_tale")
     ]
     if lore_zero:
         ids = ", ".join(str(r.get("id", "?")) for r in lore_zero)
-        lines.append(f"Lore questions with zero lore chunks: {ids}")
+        lines.append(
+            f"Lore questions with zero lore chunks (completed): {ids}")
 
     # Pass B similarity
     b_results = [
@@ -782,16 +844,36 @@ def _append_aggregate(lines: list[str], results: list[dict]) -> None:
                 f"{round(sum(sem_scores)/len(sem_scores), 1)}/10"
             )
 
-    # Pass C lore recall
-    c_results = [
-        r for r in results
-        if r.get("pass") == "C" and (r.get("similarity") or {}).get("lore_recall")
+    # Pass C lore recall — exclude exceptions (no voice draft = no score).
+    # Exceptions skew the average to 0; report completing questions separately.
+    c_all = [r for r in results if r.get("pass") == "C"]
+    c_scored = [
+        r for r in c_all
+        if (r.get("similarity") or {}).get("lore_recall")
+        and r.get("pipeline_result") != "exception"
     ]
-    if c_results:
+    c_exceptions = [
+        r for r in c_all
+        if r.get("pipeline_result") == "exception"
+    ]
+
+    if c_scored:
         avg_lore = sum(
-            r["similarity"]["lore_recall"].get("lore_score", 0) for r in c_results
-        ) / len(c_results)
-        lines.append(f"Pass C avg lore recall: {round(avg_lore, 1)}/5")
+            r["similarity"]["lore_recall"].get("lore_score", 0)
+            for r in c_scored
+        ) / len(c_scored)
+        avg_10 = round(avg_lore * 2, 1)
+        lines.append(
+            f"Pass C avg lore recall (completing only): "
+            f"{round(avg_lore, 1)}/5 ({avg_10}/10) "
+            f"[{len(c_scored)}/{len(c_all)} questions scored"
+            f"{f', {len(c_exceptions)} exceptions excluded' if c_exceptions else ''}]"
+        )
+    if c_exceptions:
+        exc_ids = ", ".join(str(r.get("id", "?")) for r in c_exceptions)
+        lines.append(
+            f"Pass C exceptions (excluded from avg): {exc_ids}"
+        )
 
 
 def write_summary_oneline(results: list[dict], output_path: Path) -> None:
@@ -879,13 +961,10 @@ def main() -> None:  # pylint: disable=missing-function-docstring
     args = parser.parse_args()
 
     # Configure logging via logging_config — replaces logging.basicConfig().
-    # summary mode uses standard (INFO) so phase chatter doesn't interleave
-    # with the one-line output. verbose uses verbose (DEBUG).
     verbosity = "verbose" if args.verbose else "standard"
     if configure_logging is not None:
         configure_logging(verbosity=verbosity, file_logging=True)
     else:
-        # Pipeline unavailable — minimal fallback so error messages still surface
         logging.basicConfig(
             level=logging.DEBUG if args.verbose else logging.WARNING,
             format="%(name)s %(levelname)s %(message)s",
@@ -897,7 +976,6 @@ def main() -> None:  # pylint: disable=missing-function-docstring
     questions_to_run: list[tuple[dict, str]] = []
 
     if args.question_ids:
-        # Build lookup from all available questions across all passes
         _all_loaded = {
             "A": load_questions("A"),
             "B": load_questions("B"),
@@ -967,7 +1045,6 @@ def main() -> None:  # pylint: disable=missing-function-docstring
     json_path = OUTPUT_DIR / f"pipeline_test_results_{timestamp}.json"
     summary_path = OUTPUT_DIR / f"pipeline_test_summary_{timestamp}.txt"
 
-    # Always write full JSON (chunk data included if verbose)
     json_path.write_text(
         json.dumps(results, indent=2, ensure_ascii=False), encoding="utf-8"
     )
