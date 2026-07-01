@@ -99,11 +99,7 @@ SIMILARITY_MODEL = os.getenv("SIMILARITY_MODEL", "mistral:latest")
 # =============================================================================
 
 SUITE_DEFINITIONS: dict[str, list[str]] = {
-    "lore_core": [
-        "lore_001", "lore_002", "lore_003", "lore_004",
-        "lore_006", "lore_007", "lore_008", "lore_009",
-    ],
-    "lore_extended": [
+    "lore_all": [
         "lore_001", "lore_002", "lore_003", "lore_004",
         "lore_005", "lore_006", "lore_007", "lore_008",
         "lore_009", "lore_010", "lore_011", "lore_012",
@@ -202,7 +198,7 @@ async def _load_from_db(pass_label: str) -> list[dict] | None:
         return None
 
 
-def load_questions(pass_label: str) -> list[dict]:
+def load_questions(pass_label: str, quiet: bool = False) -> list[dict]:
     """
     Load questions for a pass label using priority order:
 
@@ -213,8 +209,9 @@ def load_questions(pass_label: str) -> list[dict]:
     # 1. Try DB
     db_questions = asyncio.run(_load_from_db(pass_label))
     if db_questions:
-        print(
-            f"  [Pass {pass_label}] {len(db_questions)} question(s) from database.")
+        if not quiet:
+            print(
+                f"  [Pass {pass_label}] {len(db_questions)} question(s) from database.")
         return db_questions
 
     # 2. Try JSON file
@@ -222,20 +219,23 @@ def load_questions(pass_label: str) -> list[dict]:
         all_questions = _load_question_file()
         file_questions = all_questions.get(pass_label, [])
         if file_questions:
-            print(
-                f"  [Pass {pass_label}] {len(file_questions)} question(s) "
-                f"from {QUESTIONS_FILE.name}."
-            )
+            if not quiet:
+                print(
+                    f"  [Pass {pass_label}] {len(file_questions)} question(s) "
+                    f"from {QUESTIONS_FILE.name}."
+                )
             return file_questions
     except FileNotFoundError as exc:
-        print(f"  [Pass {pass_label}] WARNING: {exc}")
+        if not quiet:
+            print(f"  [Pass {pass_label}] WARNING: {exc}")
 
     # 3. Emergency fallback
     fallback = _EMERGENCY_FALLBACK.get(pass_label, [])
-    print(
-        f"  [Pass {pass_label}] WARNING: Using emergency fallback "
-        f"({len(fallback)} stub question(s)). Restore test_questions.json."
-    )
+    if not quiet:
+        print(
+            f"  [Pass {pass_label}] WARNING: Using emergency fallback "
+            f"({len(fallback)} stub question(s)). Restore test_questions.json."
+        )
     return fallback
 
 
@@ -1111,9 +1111,9 @@ def main() -> None:  # pylint: disable=missing-function-docstring
         # Named regression suite — load all passes and filter by suite IDs
         suite_ids = SUITE_DEFINITIONS[args.suite]
         _all_loaded = {
-            "A": load_questions("A"),
-            "B": load_questions("B"),
-            "C": load_questions("C"),
+            "A": load_questions("A", quiet=True),
+            "B": load_questions("B", quiet=True),
+            "C": load_questions("C", quiet=True),
         }
         all_q: dict[str, tuple[dict, str]] = {}
         for _pass_label, _qs in _all_loaded.items():
@@ -1128,16 +1128,15 @@ def main() -> None:  # pylint: disable=missing-function-docstring
             sys.exit(1)
 
         questions_to_run = [all_q[qid] for qid in suite_ids if qid in all_q]
-        if not args.summary:
-            print(f"Suite: {args.suite} ({len(questions_to_run)} questions)")
-            print()
+        # Always print suite header — even in summary mode — so progress anchors make sense
+        print(f"Suite: {args.suite} ({len(questions_to_run)} questions)")
 
     elif args.question_ids:
         # Build lookup from all available questions across all passes
         _all_loaded = {
-            "A": load_questions("A"),
-            "B": load_questions("B"),
-            "C": load_questions("C"),
+            "A": load_questions("A", quiet=True),
+            "B": load_questions("B", quiet=True),
+            "C": load_questions("C", quiet=True),
         }
         all_q = {}
         for _pass_label, _qs in _all_loaded.items():
